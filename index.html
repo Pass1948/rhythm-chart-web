@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <script>
+      /* 첫 그림 전에 화면 모드를 적용한다(깜빡임 방지, 원본 방식). 저장된 값이 없으면 화이트 */
+      (function () {
+        var m = 'light';
+        try {
+          var s = JSON.parse(localStorage.getItem('rcw.settings.v1') || '{}');
+          if (s && (s.theme === 'dark' || s.theme === 'system' || s.theme === 'light')) m = s.theme;
+        } catch (e) {}
+        var d = m === 'dark' || (m === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+      })();
+    </script>
+    <title>리듬 채보 만들기</title>
+    <script type="module" crossorigin src="./assets/main-DAn6cQmo.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/core-C8Fs904y.js">
+    <link rel="stylesheet" crossorigin href="./assets/main-CmHgnpBU.css">
+  </head>
+  <body>
+    <div id="app">불러오는 중입니다…</div>
+  </body>
+</html>
