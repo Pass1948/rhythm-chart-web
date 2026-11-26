@@ -418,7 +418,7 @@ export const api = {
   generate: async (body) => {
     const { rec } = await needSong((body || {}).song);
     if (!rec.analysis) throw fail('분석 결과가 없습니다. 먼저 분석을 해 주세요.');
-    const keys = ['ratios', 'hold_beats', 'burst_count', 'difficulty', 'lane_mode', 'key_mode', 'four_key_density', 'four_key_simultaneous', 'user_set', 'density_scale', 'rule_overrides', 'grid_division', 'nps_base', 'max_nps', 'min_gap_ms', 'grid_tolerance', 'design_mode', 'range_start_ms', 'range_end_ms', 'target_nps', 'allow_burst', 'bpm_map', 'audio_offset_ms'];
+    const keys = ['difficulty', 'density_scale', 'hold_percent', 'four_key_simultaneous', 'rule_overrides', 'grid_division', 'grid_tolerance', 'range_start_ms', 'range_end_ms', 'bpm_map', 'audio_offset_ms'];
     const options = {};
     for (const k of keys) if (body[k] !== undefined) options[k] = body[k];
     let result;

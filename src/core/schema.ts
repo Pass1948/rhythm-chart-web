@@ -50,7 +50,7 @@ export const NOTE_TYPE_NAMES: Record<string, string> = { tap: '단타', hold: '�
 export const BURST_MIN_COUNT = 3;
 export const BURST_MAX_COUNT = 100;
 
-export const DIFFICULTY_NAMES = ['EASY', 'NORMAL', 'HARD', 'CUSTOM'] as const;
+export const DIFFICULTY_NAMES = ['EASY', 'NORMAL', 'HARD', 'GLIITCH', 'CUSTOM'] as const;
 export const SECTION_KINDS = ['intro', 'verse', 'chorus', 'bridge', 'outro', 'custom'] as const;
 
 /** 격자(분할): 한 마디(4박)를 몇 칸으로 나누는지. 'free'는 격자 없음. */

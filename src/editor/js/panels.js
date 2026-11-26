@@ -1,5 +1,4 @@
 // 패널: 왼쪽 열(곡 정보·검사·분석) 카드, 건강검진, 선택한 노트 패널, 대화상자. DOM 연결과 표시 갱신을 담당한다.
-import { RATIO_KEYS, applyRatio, showRatio } from './ratio_rules.js';
 import {
   A, TRACK, applyTiming, cancelAnalyze, cancelPaste, copySelected, cutSelected, startPaste, togglePasteFlip, clearNotes, convertSelected, deleteSelected, exportChart, focusNote, generate, gridFitText, importFile, loadJson,
   openSong, repickSoon, runAnalyze, save, saveSongInfo, startDemo, swapSelectedLane, updateSelected,
@@ -33,24 +32,8 @@ const DETECTOR_HELP = {
 
 // 프리셋 파일의 키는 글자순일 수 있으므로 화면 순서를 고정한다
 const DETECTOR_ORDER = ['hybrid', 'flux', 'bass', 'treble', 'energy', 'drums', 'melody', 'vocal'];
-const LANE_ORDER = ['alternate', 'pair', 'accent', 'random'];
 
 // ---------- 공통 보조 ----------
-
-// 슬라이더와 숫자 입력을 서로 연동한다
-function linkRangeNumber(range, num, onChange) {
-  range.addEventListener('input', () => {
-    num.value = range.value;
-    onChange(Number(range.value), false);
-  });
-  num.addEventListener('change', () => {
-    const c = clampBurstCount(num.value);
-    if (c.adjusted) status(c.message, 'warn');
-    num.value = c.value;
-    range.value = c.value;
-    onChange(c.value, true);
-  });
-}
 
 let toastTimer = 0;
 function showToast(text) {
@@ -495,7 +478,6 @@ export function renderHealth() {
     return;
   }
   const h = healthStats(notes(), (t) => S.map.tickToChartMs(t));
-  const req = S.requested;
   const lanePct = (v) => (h.laneTotal ? Math.round((1000 * v) / h.laneTotal) / 10 : 0); // 연타(양쪽)는 제외한 단타·롱노트 기준
   body.innerHTML = `<table>
     <tr><td>초당 노트 수</td><td>평균 ${h.npsAvg}개 · 최대 ${h.npsMax}개</td></tr>

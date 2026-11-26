@@ -9,6 +9,7 @@ import type { AnalysisResult } from '../analysis/types.ts';
 import { AnalysisError } from '../analysis/types.ts';
 import { snapCandidates, selectByBarBudget } from './noteTypes.ts';
 import { assignNotes } from './lanes4.ts';
+import { fields } from './ruleFields.ts';
 import { thumbRules } from './rules.ts';
 import type { GenerateOptions, GenerateResult, NpsStats, TypeStats, ValidationSummary } from './types.ts';
 
@@ -18,7 +19,11 @@ export function resolveOptions(options:GenerateOptions={}, presets:Presets=loadP
   if (!cfg) throw new AnalysisError('알 수 없는 난이도입니다.');
   const rules={...thumbRules(difficulty)};
   for (const [key,value] of Object.entries(options.rule_overrides ?? {})) {
-    if (Object.hasOwn(rules,key) && Number.isFinite(value) && value>=0) rules[key as keyof typeof rules]=value;
+    const field = fields.find(f => f.key === key);
+    if (!field || !Number.isFinite(value) || value < 0 || value > field.max || !Number.isInteger(value / field.step)) {
+      throw new AnalysisError('고급 규칙 값을 확인하세요: '+key);
+    }
+    rules[field.key] = value;
   }
   const tolerance: number=presets.generation.grid_tolerance_presets[options.grid_tolerance ?? 'strict'];
   if (!tolerance) throw new AnalysisError('박자 맞춤 값을 확인하세요.');
@@ -90,6 +95,8 @@ export function generateChart(analysis:AnalysisResult, options:GenerateOptions={
   const [selected]=selectByBarBudget(snapped,map,opt.nps,opt.rules.nps,0,
     p=>p<0.1 ? 0.75+p*2.5 : 1+Math.max(0,p-0.5)*0.4,true);
   const {notes,changes}=assignNotes(selected,map,offset,end,opt);
+  const budgetTicks = new Set(selected.map(c => c.tick));
+  for (const tick of snapped.keys()) if (!budgetTicks.has(tick)) changes.push({tick,action:"마디 예산으로 제외"});
   const chart=newChart(analysis.song,'','',Math.round(duration),offset);
   chart.keyMode=chart.lanes=4;
   chart.song.audio_sha256=analysis.audio_sha256 ?? '';

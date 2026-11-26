@@ -2,6 +2,7 @@
  * 채보 검증. 결과는 오류(내보내기 차단)와 경고(내보내기 가능)로 나뉜다. 메시지는 쉬운 한국어.
  * 원본: app\core\validate.py (같은 규칙·같은 코드 이름·같은 메시지)
  */
+import { pyRound } from './util.ts';
 import { thumbRules, thumbIssues } from '../generate/rules.ts';
 import { loadValidateConfig } from './config.ts';
 import type { ValidateConfig } from './config.ts';
@@ -195,12 +196,12 @@ function validateDifficulty(diff: Difficulty, bpmMap: BpmMap | null, offset: num
   if (bpmMap !== null) {
     for (const n of valid) {
       const endTick = n.tick + (n.length_tick || 0);
-      const endMs = bpmMap.tickToMs(endTick) + offset;
-      const startMs = bpmMap.tickToMs(n.tick) + offset;
+      const endMs = pyRound(bpmMap.tickToMs(endTick) + offset);
+      const startMs = pyRound(bpmMap.tickToMs(n.tick) + offset);
       if (duration && endMs > duration) {
         add(ERROR, 'over_duration', `노트 #${n.id} 가 곡 길이(${fmt(duration / 1000.0, 1)}초)를 넘어섭니다 (끝 ${fmt(endMs / 1000.0, 1)}초).`, [n.id]);
       }
-      if (startMs < -0.5) {
+      if (startMs < 0) {
         add(WARNING, 'before_start', `노트 #${n.id} 가 음원 시작보다 앞(${fmt(startMs / 1000.0, 2)}초)에 있습니다.`, [n.id]);
       }
     }

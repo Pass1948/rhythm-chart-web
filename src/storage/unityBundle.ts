@@ -164,8 +164,8 @@ export function bpmSummary(chart: ChartV2): { bpm: number; bpmMin: number; bpmMa
 }
 
 /** 난이도 이름 → 유니티 열거형 이름 */
-export function difficultyEnum(name: string): 'Easy' | 'Normal' | 'Hard' | 'Custom' {
-  const m: Record<string, 'Easy' | 'Normal' | 'Hard'> = { EASY: 'Easy', NORMAL: 'Normal', HARD: 'Hard' };
+export function difficultyEnum(name: string): 'Easy' | 'Normal' | 'Hard' | 'GLIITCH' | 'Custom' {
+  const m: Record<string, 'Easy' | 'Normal' | 'Hard' | 'GLIITCH'> = { GLIITCH: 'GLIITCH', EASY: 'Easy', NORMAL: 'Normal', HARD: 'Hard' };
   return m[name] ?? 'Custom';
 }
 
