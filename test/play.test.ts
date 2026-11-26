@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { analyzeAudio } from '../src/analysis/analyze.ts';
 import type { AnalysisResult } from '../src/analysis/types.ts';
 import { allNotes } from './helpers03.ts';
-import { exportUnity, buildSampleChart, ticksToMs, BpmMap } from '../src/core/index.ts';
+import { exportUnity, buildSampleChart, buildUnityData, ticksToMs, BpmMap } from '../src/core/index.ts';
 import type { ChartV2 } from '../src/core/schema.ts';
 import { generateChart } from '../src/generate/index.ts';
 import { simulateAllPerfect, simulateNoInput } from '../src/chartPlay/allPerfect.ts';
@@ -51,6 +51,33 @@ async function makeCharts(): Promise<Array<{ name: string; chart: ChartV2 }>> {
 }
 
 describe('편집기 채보 → 게임 채보 변환 (toPlayChart)', () => {
+  it('내보내기가 막히는 겹친 노트도 안내와 함께 게임 테스트에 남긴다', () => {
+    const chart = buildSampleChart();
+    const difficulty = chart.difficulties[0]!;
+    const first = difficulty.notes.find((note) => note.type === 'tap')!;
+    const duplicate = { ...first, id: Math.max(...difficulty.notes.map((note) => note.id)) + 1 };
+    difficulty.notes.push(duplicate);
+
+    expect(() => exportUnity(chart, difficulty.name)).toThrow();
+    const ids = noteIdsForDifficulty(chart, difficulty.name)!;
+    const built = toPlayChart(buildUnityData(chart), difficulty.name, { noteIds: ids });
+    expect(built.notes).toHaveLength(difficulty.notes.length);
+    expect(built.noteIds).toContain(duplicate.id);
+    expect(built.warnings).toContainEqual(expect.stringContaining('노트 겹침'));
+  });
+
+  it('레인 값이 잘못된 노트만 빼고 남은 노트의 편집기 번호를 유지한다', () => {
+    const chart = buildSampleChart();
+    const name = chart.difficulties[0]!.name;
+    const unity = buildUnityData(chart);
+    const ids = noteIdsForDifficulty(chart, name)!;
+    unity.difficulties[0]!.notes[0]!.lane = 99;
+
+    const built = toPlayChart(unity, name, { noteIds: ids });
+    expect(built.noteIds).toEqual(ids.slice(1));
+    expect(built.warnings).toContainEqual(expect.stringContaining('노트 1개를 테스트에서 제외'));
+  });
+
   it('샘플 채보: 노트 수와 시각(ms)이 내보내기 결과와 완전히 같다', () => {
     const chart = buildSampleChart();
     const name = chart.difficulties[0]!.name;

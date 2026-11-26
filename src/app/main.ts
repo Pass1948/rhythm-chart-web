@@ -9,7 +9,7 @@ import '../editor/style.css';
 import '../ui/layout/layout.css'; // 04단계: 태블릿·모바일 배치(반드시 style.css 다음)
 import editorHtml from '../editor/index.html?raw';
 import testPopupHtml from '../editor/test_popup.html?raw';
-import { exportUnity } from '../core/index.ts';
+import { buildUnityData, type ChartV2 } from '../core/index.ts';
 import { storageWarning } from '../storage/songStore.ts';
 import { onGotoNote, startPlayTest } from './bridge.ts';
 import { readEditorHints } from '../chartPlay/editorHints.ts';
@@ -18,7 +18,7 @@ import { initEditorLayout } from '../ui/layout/index.ts';
 /** 편집기 점검용 객체(editor/js/main.js 가 window.__editor 로 내놓는다) */
 interface EditorHandle {
   A: { audio: { durationMs: number } };
-  S: { chart: { difficulties: { name: string }[] } | null; song: string | null; diffIndex: number; dirty: boolean };
+  S: { chart: ChartV2 | null; song: string | null; diffIndex: number; dirty: boolean };
 }
 type AppWindow = Window & { __editor?: () => EditorHandle };
 
@@ -61,7 +61,7 @@ async function showStorageNote(): Promise<void> {
   }
 }
 
-/** [게임 화면 테스트] 버튼: 지금 채보를 플레이 화면(03단계)으로 넘긴다. 아직 연결 전이면 안내만 보인다. */
+/** [게임 화면 테스트] 버튼: 선택한 난이도를 플레이 화면으로 넘긴다. */
 function bindPlayTestButton(): void {
   const btn = document.getElementById('btnPlayTest');
   if (!btn) return;
@@ -75,11 +75,16 @@ function bindPlayTestButton(): void {
       say('먼저 곡을 열어 주세요.');
       return;
     }
-    const name = ed.S.chart.difficulties[ed.S.diffIndex]?.name ?? 'NORMAL';
+    const difficulty = ed.S.chart.difficulties[ed.S.diffIndex];
+    if (!difficulty) {
+      say('먼저 테스트할 난이도를 선택해 주세요.');
+      return;
+    }
+    const name = difficulty.name;
     try {
       // @ts-ignore 편집기 JS(타입 검사 제외)
       const { api } = await import('./localApi.js');
-      const unityChart = exportUnity(ed.S.chart as never, name);
+      const unityChart = buildUnityData({ ...ed.S.chart, difficulties: [difficulty] });
       // 곡 BPM·노트 번호·첫 박 위치를 편집기가 직접 넘긴다(플레이 쪽이 편집기 상태를 따로 읽지 않아도 되게)
       const hints = readEditorHints(name);
       await startPlayTest({

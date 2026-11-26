@@ -41,7 +41,7 @@ export interface LoadWarning {
 }
 
 export type ParseResult =
-  | { ok: true; chart: Chart; warnings: string[] }
+  | { ok: true; chart: Chart; warnings: string[]; sourceIndexes?: Map<string, number[]> }
   | { ok: false; errors: string[] };
 
 export interface SelectedDifficulty {

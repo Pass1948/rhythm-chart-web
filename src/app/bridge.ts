@@ -7,7 +7,7 @@ import type { UnityChart } from '../core/chartIo.ts';
 
 /** 플레이 시작 요청 */
 export interface PlayRequest {
-  /** exportUnity 결과(선택한 난이도 하나) */
+  /** 게임 로더 형식으로 변환한 채보 데이터 */
   unityChart: UnityChart;
   difficulty: string;
   /** blob: 주소 */

@@ -129,7 +129,7 @@ function checkOverlaps(notes: ChartNote[], errors: string[], prefix: string, key
  * 채보 JSON 객체를 검사하고 게임용 채보로 바꾼다.
  * 노트가 시간순이 아니면 경고만 남기고 자동으로 정렬한다.
  */
-export function parseChart(json: unknown): ParseResult {
+export function parseChart(json: unknown, options: { preview?: boolean } = {}): ParseResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   if (!isObject(json)) {
@@ -151,6 +151,7 @@ export function parseChart(json: unknown): ParseResult {
 
   const song = isObject(json.song) ? json.song : {};
   const difficulties = new Map<string, ChartNote[]>();
+  const sourceIndexes = options.preview ? new Map<string, number[]>() : undefined;
 
   json.difficulties.forEach((rawDifficulty: unknown, difficultyIndex: number) => {
     if (!isObject(rawDifficulty) || typeof rawDifficulty.name !== 'string') {
@@ -167,21 +168,37 @@ export function parseChart(json: unknown): ParseResult {
       errors.push(`${prefix}노트가 하나도 없는 빈 채보입니다.`);
       return;
     }
-    const notes: ChartNote[] = [];
+    const indexedNotes: Array<{ note: ChartNote; index: number }> = [];
+    const noteErrors: string[] = [];
     rawDifficulty.notes.forEach((rawNote: unknown, noteIndex: number) => {
-      const note = parseNote(rawNote, noteIndex + 1, errors, prefix, keyMode);
-      if (note !== null) notes.push(note);
+      const note = parseNote(rawNote, noteIndex + 1, noteErrors, prefix, keyMode);
+      if (note !== null) indexedNotes.push({ note, index: noteIndex });
     });
-    if (notes.length !== rawDifficulty.notes.length) return; // 개별 오류는 이미 기록됨
+    if (noteErrors.length > 0) {
+      if (!options.preview) {
+        errors.push(...noteErrors);
+        return;
+      }
+      const skipped = rawDifficulty.notes.length - indexedNotes.length;
+      warnings.push(`${prefix}재생할 수 없는 노트 ${skipped}개를 테스트에서 제외했습니다. 자세한 내용은 편집기의 검사 목록을 확인해 주세요.`);
+    }
 
-    const isSorted = notes.every((note, i) => i === 0 || notes[i - 1]!.timeMs <= note.timeMs);
+    const isSorted = indexedNotes.every((entry, i) => i === 0 || indexedNotes[i - 1]!.note.timeMs <= entry.note.timeMs);
     if (!isSorted) {
       warnings.push(`${prefix}노트가 시간순으로 정렬되어 있지 않아 자동으로 정렬했습니다.`);
-      notes.sort((a, b) => a.timeMs - b.timeMs);
+      indexedNotes.sort((a, b) => a.note.timeMs - b.note.timeMs);
     }
+    const notes = indexedNotes.map((entry) => entry.note);
     const before = errors.length;
-    checkOverlaps(notes, errors, prefix, keyMode);
-    if (errors.length === before) difficulties.set(name, notes);
+    const overlaps = options.preview ? [] : errors;
+    checkOverlaps(notes, overlaps, prefix, keyMode);
+    if (options.preview && overlaps.length > 0) {
+      warnings.push(`${prefix}노트 겹침 ${overlaps.length}건이 있습니다. 자세한 내용은 편집기의 검사 목록을 확인해 주세요.`);
+    }
+    if (errors.length === before) {
+      difficulties.set(name, notes);
+      sourceIndexes?.set(name, indexedNotes.map((entry) => entry.index));
+    }
   });
 
   if (errors.length > 0) return { ok: false, errors };
@@ -203,7 +220,7 @@ export function parseChart(json: unknown): ParseResult {
     difficulties,
     declaredJudge,
   };
-  return { ok: true, chart, warnings };
+  return { ok: true, chart, warnings, ...(sourceIndexes ? { sourceIndexes } : {}) };
 }
 
 /** JSON 문자열을 읽어 채보로 바꾼다. JSON 모양 자체가 깨졌으면 쉬운 오류 문구를 돌려준다. */

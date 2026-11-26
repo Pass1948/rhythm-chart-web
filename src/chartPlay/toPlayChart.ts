@@ -1,5 +1,4 @@
-// 편집기의 Unity 내보내기 결과(UnityChart)를 게임 화면이 읽는 채보(two-key-unity.v2 → 원본 chartLoader)로 바꾼다.
-// 노트 수와 시각은 그대로 유지하고, 게임에서 칠 수 없는 노트(곡 시작 전)만 빼서 알려 준다.
+// 편집기 채보를 게임 로더 형식으로 읽는다. 겹친 노트는 유지하고 재생할 수 없는 노트만 안내 후 제외한다.
 import type { UnityChart } from '../core/chartIo.ts';
 import { ChartFormatError } from '../core/index.ts';
 import { parseChart, SUPPORTED_FORMAT, SUPPORTED_FORMAT_4KEY } from '../play/core/chart/chartLoader';
@@ -74,14 +73,12 @@ export function toLoaderJson(unity: UnityChart, difficulty: string): { json: Rec
 export function toPlayChart(unity: UnityChart, difficulty: string, options: PlayChartOptions = {}): PlayChartBuild {
   if (unity.format !== SUPPORTED_FORMAT && unity.format !== SUPPORTED_FORMAT_4KEY) throw new ChartFormatError(`채보 형식이 "${unity.format}" 입니다. 편집기의 Unity용 내보내기 결과만 쓸 수 있어요.`);
   const loaded = toLoaderJson(unity, difficulty);
-  const parsed = parseChart(loaded.json);
+  const parsed = parseChart(loaded.json, { preview: true });
   if (!parsed.ok) throw new PlayChartError(`게임 화면에서 칠 수 없는 채보예요. ${parsed.errors[0] ?? ''}`);
   const all = parsed.chart.difficulties.get(loaded.difficulty);
   if (all === undefined || all.length === 0) throw new PlayChartError('채보에 노트가 하나도 없어요. 노트를 만든 뒤 다시 눌러 주세요.');
-  // chartLoader 는 시간순이 아닐 때만 정렬한다. 내보내기 결과는 이미 시간순이라 순서가 그대로 유지된다.
-  // 순서가 바뀌었다면(정렬된 경우) 번호를 맞출 수 없으므로 번호를 모른다고 본다.
-  const sourceSorted = parsed.warnings.every((w) => !w.includes('정렬'));
-  const ids: Array<number | null> = loaded.keptSourceIndex.map((source) => (sourceSorted ? (options.noteIds?.[source] ?? null) : null));
+  const indexes = parsed.sourceIndexes?.get(loaded.difficulty) ?? [];
+  const ids = indexes.map((index) => options.noteIds?.[loaded.keptSourceIndex[index]!] ?? null);
   const startMs = options.startMs ?? 0;
   const notes: ChartNote[] = [];
   const noteIds: Array<number | null> = [];
