@@ -12,10 +12,7 @@ export const LANE_BOTH = 'both'; // 연타노트 전용 레인 값
 
 // ---------- 키 모드 (10단계) ----------
 // 2키(기본): 레인 0·1. 4키: 레인 0~3(S D K L). 현재 열린 채보의 모드를 state.js 가 setKeyMode 로 알려 준다.
-// 아래 규칙 함수들은 모두 이 값을 기본으로 쓰고, conflictReason 은 마지막 인자로 직접 줄 수도 있다. 2키 동작은 이전과 같다.
 export const FOUR_KEY_LABELS = ['S', 'D', 'K', 'L'];
-export const FOUR_KEY_MAX_SIMULTANEOUS = 2; // 같은 시각(같은 틱)에 시작하는 노트 최대 수
-export const FOUR_KEY_MAX_HELD = 2; // 롱노트 유지 + 시작하는 노트의 합 최대 수 ([13] 모바일 양손 엄지 기준 3 → 2)
 /** 레인의 손: 왼손 = 0·1, 오른손 = 2·3 (같은 손 동시는 검사에서 경고만, 편집으로 만드는 것은 막지 않는다) */
 export function handOfLane(lane) {
   return lane < 2 ? 0 : 1;
@@ -91,52 +88,22 @@ export function burstRate(count, lengthMs) {
 }
 
 // 후보 노트를 둘 수 없는 이유(한국어). 둘 수 있으면 '' 를 돌려준다.
-// cand: {type, lane, tick, length_tick, count}, ignoreId: 이동·조절 중인 자기 자신, maxTick: 곡 끝 tick(없으면 검사 안 함)
-export function conflictReason(notes, cand, ignoreId = null, maxTick = null, km = activeKeyMode) {
+// maxTick은 곡 끝이다. 옛 롱노트도 원래 길이로 옮길 수 있다.
+function placementReason(cand, maxTick, minLength = 1) {
+  const km = activeKeyMode;
   if (cand.type === 'burst') {
     if (cand.lane !== LANE_BOTH) return km === 4 ? '연타노트는 레인 없이 4레인 전체를 쓰는 노트입니다.' : '연타노트는 레인 없이 양쪽 레인 전체를 쓰는 노트입니다.';
   } else if (!isNoteLane(cand.lane, km)) return km === 4 ? '레인은 1~4레인 중 하나여야 합니다.' : '레인은 왼쪽이나 오른쪽이어야 합니다.';
   if (!Number.isInteger(cand.tick) || cand.tick < 0) return '곡 시작보다 앞에는 노트를 둘 수 없습니다.';
   if (isLong(cand)) {
-    if (!Number.isInteger(cand.length_tick) || cand.length_tick < MIN_LONG_TICKS) return `${TYPE_NAMES[cand.type]}의 최소 길이는 1/4박입니다.`;
+    if (!Number.isInteger(cand.length_tick) || cand.length_tick < minLength) {
+      return minLength === MIN_LONG_TICKS ? `${TYPE_NAMES[cand.type]}의 최소 길이는 1/4박입니다.` : '노트 길이는 0보다 커야 합니다.';
+    }
   }
   if (cand.type === 'burst') {
     if (!Number.isInteger(cand.count) || cand.count < BURST_MIN || cand.count > BURST_MAX) return `연타 횟수는 ${BURST_MIN}~${BURST_MAX}회여야 합니다.`;
   }
   if (maxTick !== null && noteEnd(cand) > maxTick) return '곡 길이를 넘어서는 위치에는 노트를 둘 수 없습니다.';
-  const cEnd = noteEnd(cand);
-  for (const o of notes) {
-    if (o.id === ignoreId) continue;
-    // 연타노트 구간 안에는 어떤 노트도(양쪽 레인 모두) 둘 수 없다
-    if (cand.type === 'burst' && occupies(o, cand.tick, cEnd)) return '연타노트 구간 안에는 다른 노트를 둘 수 없습니다. 먼저 그 구간의 노트를 지워 주세요.';
-    if (o.type === 'burst' && occupies(cand, o.tick, noteEnd(o))) return '연타노트 구간 안에는 다른 노트를 둘 수 없습니다.';
-    if (o.type === 'burst' || cand.type === 'burst' || o.lane !== cand.lane) continue;
-    if (o.tick === cand.tick) return '같은 레인의 같은 위치에 이미 노트가 있습니다.';
-    if (isLong(o) && cand.tick >= o.tick && cand.tick < noteEnd(o)) {
-      return `${TYPE_NAMES[o.type]} 구간 안에는 같은 레인에 다른 노트를 둘 수 없습니다.`;
-    }
-    if (isLong(cand) && o.tick >= cand.tick && o.tick < cEnd) {
-      return `${TYPE_NAMES[cand.type]} 구간 안에 같은 레인의 다른 노트가 겹칩니다.`;
-    }
-  }
-  if (km === 4 && cand.type !== 'burst') return fourKeyReason(notes, cand, ignoreId);
-  return '';
-}
-
-// 4키 동시 입력 규칙: 같은 시각에 시작하는 노트 최대 2개, 롱노트 유지 + 시작하는 노트 합 최대 2개([13] 같은 손 동시는 막지 않고 검사에서 경고).
-// 후보를 둠으로써 영향을 받는 시각(후보 시작, 후보가 롱노트면 그 구간 안의 다른 노트 시작)만 검사한다.
-function fourKeyReason(notes, cand, ignoreId) {
-  const others = notes.filter((o) => o.id !== ignoreId && o.type !== 'burst');
-  const all = [...others, cand];
-  const cEnd = noteEnd(cand);
-  const ticks = new Set([cand.tick]);
-  if (cand.type === 'hold') for (const o of others) if (o.tick > cand.tick && o.tick < cEnd) ticks.add(o.tick);
-  for (const t of ticks) {
-    const starts = all.filter((o) => o.tick === t).length;
-    if (starts > FOUR_KEY_MAX_SIMULTANEOUS) return `같은 위치에는 노트를 최대 ${FOUR_KEY_MAX_SIMULTANEOUS}개까지만 둘 수 있습니다 (4키).`;
-    const held = all.filter((o) => o.type === 'hold' && o.tick < t && noteEnd(o) > t).length;
-    if (held + starts > FOUR_KEY_MAX_HELD) return `롱노트를 누르는 동안 동시에 눌러야 하는 노트가 ${FOUR_KEY_MAX_HELD}개를 넘을 수 없습니다 (4키).`;
-  }
   return '';
 }
 
@@ -151,7 +118,7 @@ export function isBurstNote(note) {
 // 노트 추가. 성공: {ok:true, notes, note}, 실패: {ok:false, reason}
 export function tryAdd(notes, cand, maxTick = null) {
   if (cand.type === 'burst') return { ok: false, reason: BURST_CLOSED_REASON };
-  const reason = conflictReason(notes, cand, null, maxTick);
+  const reason = placementReason(cand, maxTick, MIN_LONG_TICKS);
   if (reason) return { ok: false, reason };
   const note = { id: nextId(notes), type: cand.type, lane: cand.lane, tick: cand.tick };
   if (isLong(cand)) note.length_tick = cand.length_tick;
@@ -165,8 +132,8 @@ export function tryUpdate(notes, id, patch, maxTick = null) {
   if (!old) return { ok: false, reason: '노트를 찾을 수 없습니다.' };
   const cand = { ...old, ...patch };
   if (cand.type === 'burst') return { ok: false, reason: BURST_CLOSED_REASON }; // 연타로 바꾸기·옛 연타 고치기 모두 막는다(단타·롱노트로 바꾸는 것은 허용)
-  if (isLong(cand) && cand.length_tick < MIN_LONG_TICKS) cand.length_tick = MIN_LONG_TICKS; // 최소 길이 아래로 줄어들지 않는다
-  const reason = conflictReason(notes, cand, id, maxTick);
+  if (isLong(cand) && patch.length_tick !== undefined && cand.length_tick < MIN_LONG_TICKS) cand.length_tick = MIN_LONG_TICKS;
+  const reason = placementReason(cand, maxTick);
   if (reason) return { ok: false, reason };
   return { ok: true, notes: notes.map((n) => (n.id === id ? cand : n)).sort(byTick), note: cand };
 }
@@ -296,20 +263,16 @@ export function removeNotes(notes, ids) {
   return notes.filter((n) => !set.has(n.id));
 }
 
-// 선택한 노트를 한꺼번에 deltaTick 만큼 옮긴다 (레인은 그대로).
-// 하나라도 겹침·중복·연타 구간 침범·곡 길이 초과·곡 시작 앞이면 전체를 취소한다: {ok:false, reason}
-export function tryMoveGroup(notes, ids, deltaTick, maxTick = null) {
+// 선택한 노트를 시간과 레인 방향으로 같은 거리만큼 옮긴다.
+export function tryMoveGroup(notes, ids, deltaTick, maxTick = null, deltaLane = 0) {
   const set = new Set(ids);
-  const moving = notes.filter((n) => set.has(n.id)).map((n) => ({ ...n, tick: n.tick + deltaTick }));
+  const moving = notes.filter((n) => set.has(n.id)).map((n) => ({ ...n, tick: n.tick + deltaTick, lane: isBurstNote(n) ? n.lane : n.lane + deltaLane }));
   if (moving.some(isBurstNote)) return { ok: false, reason: `${BURST_CLOSED_REASON} 선택한 노트를 모두 옮기지 않았습니다.` };
-  let base = notes.filter((n) => !set.has(n.id));
-  for (const m of moving.sort(byTick)) {
-    if (m.tick < 0) return { ok: false, reason: '곡 시작보다 앞으로는 옮길 수 없습니다. 선택한 노트를 모두 옮기지 않았습니다.' };
-    const reason = conflictReason(base, m, null, maxTick);
+  for (const m of moving) {
+    const reason = placementReason(m, maxTick);
     if (reason) return { ok: false, reason: `${reason} 선택한 노트를 모두 옮기지 않았습니다.` };
-    base = [...base, m];
   }
-  return { ok: true, notes: base.sort(byTick) };
+  return { ok: true, notes: [...notes.filter((n) => !set.has(n.id)), ...moving].sort(byTick) };
 }
 
 // ---------- 연타 길이 = 횟수 ÷ 박당 칸 수 ----------
@@ -368,7 +331,6 @@ export function flipClip(clip) {
 }
 
 // 붙여넣기: 기준점을 anchorTick 에 두고 보관함의 노트를 모두 놓는다. **전체 성공 또는 전체 취소**.
-// 기존 편집 규칙(conflictReason)을 그대로 쓴다: 같은 자리 중복·롱노트/연타 구간 겹침·연타 구간 안 다른 노트(양쪽 레인)·곡 길이·음수 위치·연타 횟수.
 // 성공: {ok:true, notes, ids(새로 붙은 노트 id 목록)}, 실패: {ok:false, reason}
 export function tryPaste(notes, clip, anchorTick, maxTick = null, flip = false) {
   if (!clip || !clip.items.length) return { ok: false, reason: '복사한 노트가 없습니다. 먼저 노트를 선택해 Ctrl+C 로 복사해 주세요.' };
@@ -380,7 +342,7 @@ export function tryPaste(notes, clip, anchorTick, maxTick = null, flip = false) 
     const cand = { type: it.type, lane: it.lane, tick: anchorTick + it.rel };
     if (it.length_tick !== undefined) cand.length_tick = it.length_tick;
     if (it.count !== undefined) cand.count = it.count;
-    const reason = conflictReason(base, cand, null, maxTick);
+    const reason = placementReason(cand, maxTick);
     if (reason) return { ok: false, reason };
     const note = { id: nextId(base), ...cand };
     base = [...base, note];

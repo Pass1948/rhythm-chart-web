@@ -85,6 +85,7 @@ describe('노트 이동·길이 조절 계산 (오른쪽 편집과 공용)', () 
     expect(movePatch(n, 2000, 0, 1, 240)).toEqual({ tick: 1920, lane: 1 });
     expect(movePatch(n, 2000, 0, -1, 240).lane).toBe(0);
     expect(movePatch(n, -500, 0, 0, 240).tick).toBe(0);
+    expect(movePatch({ ...n, tick: 1975 }, 2015, 40, 3, 240)).toEqual({ tick: 1975, lane: 3 });
     expect(movePatch({ id: 2, type: 'burst', lane: 'both', tick: 0 }, 480, 0, 1, 240).lane).toBe('both');
   });
 

@@ -1,7 +1,7 @@
 // 노트 추가·이동·길이 조절의 "데이터 변경" 공용 모듈 (09단계).
 // 오른쪽 세로 채보 편집(vertical.js)과 음원 카드 가로 타임라인(timeline.js)이 같은 함수를 호출한다. 화면 좌표 계산은 각 화면에 남기고,
 // 여기서는 틱 단위 계산과 상태 변경(setNotes·select·commit)만 한다. 되돌리기 기록은 호출하는 쪽이 끌기 시작 때 찍은 snapshot(before)을 넘긴다.
-import { LANE_BOTH, MIN_LONG_TICKS, burstCountForLength, burstLengthForCount, clampBurstCount, conflictReason, fitBurstLength, noteEnd, snapTick, tryAdd, tryMoveGroup, tryUpdate } from './edit_rules.js';
+import { LANE_BOTH, MIN_LONG_TICKS, burstCountForLength, burstLengthForCount, clampBurstCount, fitBurstLength, noteEnd, snapTick, tryAdd, tryMoveGroup, tryUpdate } from './edit_rules.js';
 import { S, commit, emit, gridStep, maxTick, notes, select, setNotes, status } from './state.js';
 
 // ---------- 순수 계산 (상태를 건드리지 않는다) ----------
@@ -11,8 +11,9 @@ import { S, commit, emit, gridStep, maxTick, notes, select, setNotes, status } f
  * 연타노트는 시간으로만 움직이고(레인 고정), lane 이 -1(레인 밖)이면 원래 레인을 유지한다.
  */
 export function movePatch(note, ptrTick, grab, laneUnderPointer, step) {
+  const tick = ptrTick - grab;
   return {
-    tick: Math.max(0, snapTick(ptrTick - grab, step)),
+    tick: Math.abs(tick - note.tick) < 1e-6 ? note.tick : Math.max(0, snapTick(tick, step)),
     lane: note.type === 'burst' ? LANE_BOTH : laneUnderPointer < 0 ? note.lane : laneUnderPointer,
   };
 }
@@ -45,7 +46,7 @@ export function addTapAt(lane, tick, before) {
   return true;
 }
 
-/** 끌기 상태 d 의 노트 하나(d.id)에 patch 를 적용한다(겹침·곡 끝 규칙은 tryUpdate). 바뀌었으면 d.changed = true */
+/** 끌기 상태 d 의 노트 하나(d.id)에 patch 를 적용한다. 바뀌었으면 d.changed = true */
 export function applyDragPatch(d, patch) {
   const note = notes().find((n) => n.id === d.id);
   if (!note) return false;
@@ -55,7 +56,7 @@ export function applyDragPatch(d, patch) {
     status(r.reason, 'warn');
     return false;
   }
-  if (patch.tick !== note.tick || patch.lane !== note.lane || (patch.length_tick !== undefined && patch.length_tick !== note.length_tick)) {
+  if (r.note.tick !== note.tick || r.note.lane !== note.lane || r.note.length_tick !== note.length_tick) {
     setNotes(r.notes);
     d.changed = true;
     emit('live');
@@ -63,15 +64,16 @@ export function applyDragPatch(d, patch) {
   return true;
 }
 
-/** 여러 개를 함께 옮기는 끌기: d.base(끌기 시작 때 노트 복사본)에서 delta tick 만큼 */
-export function applyGroupMove(d, delta) {
-  const r = tryMoveGroup(d.base, d.ids, delta, maxTick());
+/** 여러 개를 함께 옮긴다. 시간·레인 변화량은 끌기 시작 위치가 기준이다. */
+export function applyGroupMove(d, deltaTick, laneUnderPointer) {
+  const deltaLane = d.grabLane < 0 || laneUnderPointer < 0 ? 0 : laneUnderPointer - d.grabLane;
+  const r = tryMoveGroup(d.base, d.ids, deltaTick, maxTick(), deltaLane);
   if (!r.ok) {
     status(r.reason, 'warn');
     return false;
   }
   setNotes(r.notes);
-  d.changed = d.changed || delta !== 0;
+  d.changed = d.changed || deltaTick !== 0 || deltaLane !== 0;
   emit('live');
   return true;
 }

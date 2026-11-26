@@ -6,7 +6,7 @@ import { analyzeFileWithMode } from '../analysis/modes/api.ts';
 import { cancelAnalysis, normalizeOptions, AnalysisAborted, decodeToMono22k, computeWaveInWorker } from '../analysis/index.ts';
 import { gridFitStats } from '../analysis/beats.ts';
 import {
-  ChartFormatError, ExportBlocked, MODE_DESCRIPTIONS, KEEP_SOUND, chartToJson, exportEditJson, exportUnity, exportUnitySplit, loadChartData,
+  ChartFormatError, MODE_DESCRIPTIONS, KEEP_SOUND, chartToJson, loadChartData,
   loadJudgeConfig, loadPresets, loadValidateConfig, newChart, retimeChart, safeName, sha256Hex,
 } from '../core/index.ts';
 import { generateChart } from '../generate/index.ts';
@@ -467,7 +467,7 @@ export const api = {
 
   /**
    * [04d] 내보낼 파일을 만든다(저장은 하지 않는다). {song, chart, what: 'chart'|'audio'|'both', kind: 'edit'|'unity', split}
-   * → {files: [{name, blob, mime, label, size}]}. 오류가 있는 채보는 Unity용을 막는다(422).
+   * → {files: [{name, blob, mime, label, size}]}.
    */
   prepareExport: async (body) => {
     const what = body.what || 'chart';
@@ -483,7 +483,6 @@ export const api = {
       });
       return { files };
     } catch (e) {
-      if (e instanceof ExportBlocked) throw fail(e.message, 422, { issues: e.issues.filter((i) => i.level === 'error') });
       if (e && (e.name === 'ZipError' || e.name === 'UnityBundleError')) throw fail(e.message, 400);
       throw e;
     }
@@ -496,7 +495,6 @@ export const api = {
     try {
       return await buildUnityBundle({ chart, audioBlob: rec.audioBlob || null, audioFileName: rec.audioMeta && rec.audioMeta.fileName });
     } catch (e) {
-      if (e instanceof ExportBlocked) throw fail(e.message, 422, { issues: e.issues.filter((i) => i.level === 'error') });
       if (e && e.name === 'UnityBundleError') throw fail(e.message, 400);
       throw e;
     }

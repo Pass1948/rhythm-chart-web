@@ -4,6 +4,7 @@
  * - JSON 만 있으면 채보만, 음원만 있으면 음원만 돌려준다(음원만 있는 경우는 화면이 "채보가 없는 음원" 안내를 한다).
  */
 import { readZip, ZipError, type ZipEntry } from './zip.ts';
+import { isFourKeyUnityData } from '../core/chartIo.ts';
 
 const AUDIO_EXT = /\.(mp3|wav|m4a|ogg|flac)$/i;
 
@@ -24,14 +25,42 @@ function baseName(path: string): string {
 export async function readBundle(file: Blob): Promise<BundleContent> {
   const entries = await readZip(file);
   const visible = entries.filter((e) => !baseName(e.name).startsWith('.') && !e.name.startsWith('__MACOSX/'));
-  const jsons = visible.filter((e) => /\.json$/i.test(e.name));
+  const jsons = visible.filter((e) => /\.json$/i.test(e.name) && baseName(e.name).toLowerCase() !== 'manifest.json');
   const audios = visible.filter((e) => AUDIO_EXT.test(e.name));
   const pick = (list: ZipEntry[], prefer: string): ZipEntry | null => list.find((e) => baseName(e.name) === prefer) ?? list[0] ?? null;
-  const jsonEntry = pick(jsons, '채보.json');
+  const jsonEntry = jsons.find((e) => baseName(e.name) === '채보.json')
+    ?? jsons.find((e) => /^chart_.+\.json$/i.test(baseName(e.name))) ?? jsons[0] ?? null;
   const audioEntry = pick(audios, '');
   if (!jsonEntry && !audioEntry) throw new ZipError('이 ZIP 안에서 채보 JSON 이나 음원 파일을 찾지 못했습니다.');
   let chartText: string | null = null;
-  if (jsonEntry) chartText = new TextDecoder('utf-8').decode(await jsonEntry.read()).replace(/^﻿/, '');
+  if (jsonEntry) {
+    const decoder = new TextDecoder('utf-8');
+    chartText = decoder.decode(await jsonEntry.read());
+    if (jsons.length > 1 && baseName(jsonEntry.name) !== '채보.json') {
+      const primary = JSON.parse(chartText);
+      if (isFourKeyUnityData(primary)) {
+        const names = new Set(primary.difficulties.map((diff) => typeof diff?.name === 'string' ? diff.name.toUpperCase() : null));
+        for (const entry of jsons) {
+          if (entry === jsonEntry) continue;
+          const text = decoder.decode(await entry.read());
+          let other: unknown;
+          try {
+            other = JSON.parse(text);
+          } catch {
+            continue;
+          }
+          if (!isFourKeyUnityData(other)) continue;
+          for (const diff of other.difficulties) {
+            const name = typeof diff?.name === 'string' ? diff.name.toUpperCase() : null;
+            if (!name || names.has(name)) continue;
+            primary.difficulties.push(diff);
+            names.add(name);
+          }
+        }
+        chartText = JSON.stringify(primary);
+      }
+    }
+  }
   let audio: BundleContent['audio'] = null;
   if (audioEntry) {
     const bytes = await audioEntry.read();

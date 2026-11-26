@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 import {
   BpmMap,
   ChartFormatError,
-  ExportBlocked,
   GridMap,
   KEEP_BEAT,
   KEEP_SOUND,
@@ -490,18 +489,39 @@ describe('Unity 내보내기', () => {
     expect(parts.length).toBe(2);
     for (const p of parts) expect(p.difficulties.length).toBe(1);
   });
-  it('오류가 있으면 Unity 내보내기 차단, 편집용은 가능', () => {
+  it('겹친 노트는 검증에 표시하고 Unity용과 편집용 양쪽에 보존한다', () => {
     const chart = buildSampleChart();
-    chart.difficulties[0]!.notes.push(makeNote(999, 'tap', 0, chart.difficulties[0]!.notes[0]!.tick));
-    let blocked: ExportBlocked | null = null;
-    try {
-      exportUnity(chart);
-    } catch (e) {
-      blocked = e as ExportBlocked;
-    }
-    expect(blocked).toBeInstanceOf(ExportBlocked);
-    expect(blocked!.issues.length).toBeGreaterThan(0);
+    const notes = chart.difficulties[0]!.notes;
+    notes.push({ ...notes[0]!, id: 999 });
+    expect(hasErrors(validateIssues(chart))).toBe(true);
+    expect(exportUnity(chart).difficulties[0]!.notes).toHaveLength(notes.length);
     expect(exportEditJson(chart).length).toBeGreaterThan(10);
+  });
+});
+
+describe('4키 이전 형식 가져오기', () => {
+  it('버전 번호와 무관하게 4키 편집용 채보의 타이밍과 노트를 보존한다', () => {
+    const original = buildSampleChart();
+    const old = { ...original, schema_version: 'four-key-chart.v1', lanes: 4 };
+    const result = loadChartData(old);
+    expect(result.chart).toMatchObject({
+      schema_version: 2, keyMode: 4, lanes: 4,
+      timing: original.timing, difficulties: original.difficulties,
+    });
+    expect(loadChartData({ ...old, schema_version: 99 }).chart).toEqual(result.chart);
+  });
+
+  it('예전 Unity 4키 JSON의 음수 시작 시각과 롱노트 길이를 보존한다', () => {
+    const notes = [
+      { type: 'tap', lane: 0, time_ms: -23, duration_ms: 0, count: 0 },
+      { type: 'hold', lane: 3, time_ms: 311, duration_ms: 217, count: 0 },
+      { type: 'burst', lane: 'both', time_ms: 3057, duration_ms: 500, count: 8 },
+    ];
+    const { chart } = loadChartData({
+      format: 'four-key-unity.v1',
+      difficulties: [{ name: 'Glitch', level: 9, notes }],
+    });
+    expect(exportUnity(chart).difficulties).toEqual([{ name: 'GLIITCH', level: 9, notes }]);
   });
 });
 

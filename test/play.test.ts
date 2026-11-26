@@ -51,14 +51,13 @@ async function makeCharts(): Promise<Array<{ name: string; chart: ChartV2 }>> {
 }
 
 describe('편집기 채보 → 게임 채보 변환 (toPlayChart)', () => {
-  it('내보내기가 막히는 겹친 노트도 안내와 함께 게임 테스트에 남긴다', () => {
+  it('겹친 노트는 안내와 함께 게임 테스트에 남긴다', () => {
     const chart = buildSampleChart();
     const difficulty = chart.difficulties[0]!;
     const first = difficulty.notes.find((note) => note.type === 'tap')!;
     const duplicate = { ...first, id: Math.max(...difficulty.notes.map((note) => note.id)) + 1 };
     difficulty.notes.push(duplicate);
 
-    expect(() => exportUnity(chart, difficulty.name)).toThrow();
     const ids = noteIdsForDifficulty(chart, difficulty.name)!;
     const built = toPlayChart(buildUnityData(chart), difficulty.name, { noteIds: ids });
     expect(built.notes).toHaveLength(difficulty.notes.length);

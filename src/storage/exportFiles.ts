@@ -61,7 +61,7 @@ export function exportBaseName(chart: ChartV2, audioFileName?: string): string {
   return safeName(chart.song.title || (audioFileName ? stem(audioFileName) : '') || 'chart');
 }
 
-/** 저장할 파일 목록을 만든다. 오류가 있는 채보를 Unity용으로 내보내면 ExportBlocked 를 던진다. */
+/** 저장할 파일 목록을 만든다. */
 export async function buildExportFiles(input: ExportInput): Promise<ExportFile[]> {
   const base = exportBaseName(input.chart, input.audioFileName);
   const json = (name: string, text: string, label: string): ExportFile => {
@@ -109,7 +109,8 @@ export async function buildExportFiles(input: ExportInput): Promise<ExportFile[]
         ),
       ];
     }
-    return [json(`${base}_${parts[0]!.difficulties[0]!.name}.json`, JSON.stringify(parts[0], null, 2), '채보 JSON(Unity용)')];
+    const part = parts[0];
+    if (part) return [json(`${base}_${part.difficulties[0]!.name}.json`, JSON.stringify(part, null, 2), '채보 JSON(Unity용)')];
   }
   return [json(`${base}_unity.json`, JSON.stringify(exportUnity(input.chart), null, 2), '채보 JSON(Unity용)')];
 }

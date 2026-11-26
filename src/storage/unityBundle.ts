@@ -4,8 +4,8 @@
  * ZIP 과 무관한 순수 함수들이다(16단계에서 폴더에 바로 쓸 때도 같은 함수를 쓴다).
  * v1 → v2 변경(2.2): 두 CSV 의 열 순서·개수 교체, 연타·keyMode·skillPointCount 열 삭제, artist·genre 는 테이블에 내보내지 않는다.
  */
-import { BpmMap, chartKeyMode, exportUnitySplit, findLegacyBursts, sha256Hex } from '../core/index.ts';
-import type { ChartV2, LegacyBurstGroup, UnityChart, UnityNote } from '../core/index.ts';
+import { BpmMap, chartKeyMode, exportUnitySplit, sha256Hex } from '../core/index.ts';
+import type { ChartV2, UnityChart, UnityNote } from '../core/index.ts';
 
 export const BUNDLE_FORMAT = 'chart-bundle.v2';
 
@@ -118,7 +118,7 @@ function compareNumbers(a: number, b: number): number {
 
 /**
  * Unity 채보 난이도 하나의 노트 통계(단타·롱노트 개수, 처음/마지막, 초당 노트 수).
- * 연타는 새 계약(v2)에 없어 세지 않는다(연타가 남은 채보는 묶음을 만들기 전에 막힌다).
+ * 연타는 새 계약(v2)의 CSV 통계 항목에 포함하지 않는다.
  */
 export function chartStats(notes: UnityNote[]): ChartStats {
   let tap = 0, hold = 0;
@@ -212,32 +212,16 @@ export function buildChartRow(
   ];
 }
 
-// ---------- 구형 연타 확인 ----------
-
-/** 구형 연타가 남은 채보의 안내 문장(난이도와 몇 개인지) */
-export function describeLegacyBursts(groups: LegacyBurstGroup[]): string {
-  const parts: string[] = [];
-  for (const g of groups) parts.push(`${g.difficulty} 난이도 ${g.ticks.length}개`);
-  return `연타노트가 남아 있어 유니티로 내보낼 수 없습니다 (${parts.join(', ')}). 해당 노트를 삭제하고 단타나 롱노트로 다시 입력해 주세요.`;
-}
-
-/** 구형 연타가 하나라도 있으면 묶음을 만들기 전에 중단한다 */
-function assertNoLegacyBurst(chart: ChartV2): void {
-  const groups = findLegacyBursts(chart);
-  if (groups.length > 0) throw new UnityBundleError(describeLegacyBursts(groups));
-}
-
 // ---------- 묶음 만들기 ----------
 
 /**
  * 4키 채보 + 원본 음원으로 유니티 묶음을 만든다. 파일은 manifest.json 이 맨 마지막이다.
- * 4키가 아니거나 음원·노트가 없거나 구형 연타가 남아 있으면 UnityBundleError, 채보에 오류가 있으면 exportUnitySplit 이 ExportBlocked 를 던진다.
+ * 4키 채보와 음원, 노트가 있는 난이도가 필요하다.
  */
 export async function buildUnityBundle(input: BuildBundleInput): Promise<UnityBundle> {
   const { chart, audioBlob } = input;
   if (chartKeyMode(chart) !== 4) throw new UnityBundleError('2키 채보는 아직 유니티로 보낼 수 없습니다. 4키 채보로 만들어 주세요.');
   if (!audioBlob) throw new UnityBundleError('이 곡의 음원 파일이 없어 내보낼 수 없습니다.');
-  assertNoLegacyBurst(chart); // 난이도를 나누기 전에 확인해 전체 출력을 중단한다
 
   const parts = exportUnitySplit(chart).filter((p) => p.difficulties[0]!.notes.length > 0);
   if (!parts.length) throw new UnityBundleError('노트가 있는 난이도가 없어 내보낼 수 없습니다.');

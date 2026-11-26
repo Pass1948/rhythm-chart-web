@@ -251,7 +251,7 @@ describe('로컬 API: 채보 도구와 내보내기', () => {
     expect(v).toHaveProperty('issues');
   });
 
-  it('내보내기: 편집용·Unity용 파일이 다운로드로 나가고, 오류가 있으면 Unity용은 막는다', async () => {
+  it('내보내기: 검사 오류가 있어도 편집용·Unity용 파일을 다운로드한다', async () => {
     const info = await importAndAnalyze();
     const gen = await api.generate({ song: info.id, difficulty: 'NORMAL', grid_division: 8 });
     const { chart } = await api.getChart(info.id);
@@ -275,15 +275,16 @@ describe('로컬 API: 채보 도구와 내보내기', () => {
     const split = await api.exportChart({ song: info.id, chart, kind: 'unity', split: true });
     expect(split.exported).toEqual(['테스트곡_NORMAL.json']);
 
-    // 오류가 있는 채보(같은 자리 노트 2개) → Unity용 422
+    // 오류가 있는 채보(같은 자리 노트 2개)도 Unity용으로 저장한다.
     const bad = JSON.parse(JSON.stringify(chart));
     bad.difficulties[0].notes.push({ ...bad.difficulties[0].notes[0], id: 99999 });
     const before = downloads.length;
-    await expect(api.exportChart({ song: info.id, chart: bad, kind: 'unity' })).rejects.toMatchObject({ status: 422 });
-    expect(downloads.length).toBe(before);
+    expect((await api.validate(bad)).errors).toBeGreaterThan(0);
+    await expect(api.exportChart({ song: info.id, chart: bad, kind: 'unity' })).resolves.toHaveProperty('exported');
+    expect(downloads.length).toBe(before + 1);
     // 편집용은 오류가 있어도 내보낼 수 있다
     await api.exportChart({ song: info.id, chart: bad, kind: 'edit' });
-    expect(downloads.length).toBe(before + 1);
+    expect(downloads.length).toBe(before + 2);
     await expect(api.exportChart({ song: info.id, chart, kind: 'zip' })).rejects.toThrow(/내보내기 종류/);
   });
 

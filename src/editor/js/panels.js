@@ -133,7 +133,7 @@ export function initPanels() {
     $('exportOk').hidden = what === 'unity'; // 유니티 묶음은 영역 안의 [유니티로 보내기]·[ZIP으로 저장]을 쓴다
     refreshUnityLinkUi();
     $('exportHelp').textContent = what === 'chart'
-      ? '오류가 있는 채보는 Unity용으로 내보낼 수 없습니다. 다음 창에서 파일 이름을 확인하고 저장합니다.'
+      ? '다음 창에서 파일 이름을 확인하고 저장합니다.'
       : what === 'audio'
         ? '업로드한 원본 음원이 ZIP 하나에 담겨 나갑니다(안의 파일 이름·형식은 그대로). 다음 창에서 파일 이름을 확인하고 저장합니다.'
         : what === 'unity'
@@ -532,8 +532,8 @@ function addLegacyBurstItems(list) {
     const places = bursts.slice(0, 5).map(describeBurstPlace).join(', ');
     const more = bursts.length > 5 ? ` 외 ${bursts.length - 5}개` : '';
     const li = document.createElement('li');
-    li.className = 'error';
-    li.textContent = `연타노트 · ${diffs[d].name} 난이도 ${bursts.length}개 (${places}${more}) — 삭제하고 단타·롱노트로 다시 입력하지 않으면 유니티로 내보낼 수 없습니다.`;
+    li.className = 'warn';
+    li.textContent = `연타노트 · ${diffs[d].name} 난이도 ${bursts.length}개 (${places}${more}) — 현재 Unity Chart Sync는 연타가 포함된 묶음을 가져올 수 없습니다.`;
     li.title = '눌러서 첫 연타노트로 이동';
     li.addEventListener('click', () => focusLegacyBurst(d, bursts[0].id));
     list.appendChild(li);
@@ -609,7 +609,7 @@ export function renderSelected() {
   box.className = '';
   box.innerHTML = `<div class="help">종류: <b>${TYPE_NAMES[n.type]}</b> · ${n.type === 'burst' ? '' : `레인: <b>${laneText(n.lane)}</b> · `}${n.type === 'burst' ? (keyMode() === 4 ? '4레인 전체 폭 · ' : '양쪽 레인 전체 폭 · ') : ''} 시작: <b>${S.map.barBeat(n.tick)}</b> (${formatTime(S.map.tickToAudioMs(n.tick))})</div>
     ${n.type === 'hold' ? `<label>길이 (박) <input id="selLen" class="num small" type="number" min="0.25" step="0.25" value="${Math.round(lenBeats * 100) / 100}"> <small class="help">${Math.round(lenMs)}ms</small></label>` : ''}
-    ${n.type === 'burst' ? `<div class="help" style="color:var(--warn)">옛 연타노트입니다(${n.count}회). 더 이상 고칠 수 없고 이대로는 유니티로 내보낼 수 없습니다. [삭제] 후 단타·롱노트로 다시 입력하거나, 아래 [단타]·[롱노트]로 바꿔 주세요.</div>` : ''}
+    ${n.type === 'burst' ? `<div class="help" style="color:var(--warn)">옛 연타노트입니다(${n.count}회). 아래 [단타]·[롱노트]로 바꿀 수 있습니다. 현재 Unity Chart Sync는 연타가 포함된 묶음을 가져올 수 없습니다.</div>` : ''}
     <div class="row">${n.type === 'burst' ? '' : '<button id="selSwap" type="button" class="sm">레인 교체</button>'}<button id="selDelete" type="button" class="sm">삭제</button></div>
     ${clipButtons()}
     <div class="row"><small class="help">종류 바꾸기:</small>${['tap', 'hold'].map((t) => `<button type="button" class="sm conv" data-type="${t}" ${t === n.type ? 'disabled' : ''}>${TYPE_NAMES[t]}</button>`).join('')}</div>`;

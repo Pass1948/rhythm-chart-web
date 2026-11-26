@@ -107,12 +107,12 @@ export class Timeline {
       }
       if (S.selectedIds.length > 1 && S.selectedIds.includes(hit.note.id)) {
         // 여러 개 선택된 노트 위를 끌면 한꺼번에 옮긴다
-        this.drag = { mode: 'group-move', hitId: hit.note.id, before, changed: false, ids: [...S.selectedIds], base: JSON.parse(JSON.stringify(notes())), grab: this.tickOfX(x) };
+        this.drag = { mode: 'group-move', hitId: hit.note.id, before, changed: false, ids: [...S.selectedIds], base: notes(), grab: this.tickOfX(x), grabLane: lane, axisStart: x };
         return;
       }
       select(hit.note.id);
       const mode = hit.part === 'end' ? 'resize-end' : hit.part === 'start' ? 'resize-start' : 'move';
-      this.drag = { mode, id: hit.note.id, before, changed: false, grab: this.tickOfX(x) - hit.note.tick, orig: { ...hit.note } };
+      this.drag = { mode, id: hit.note.id, before, changed: false, grab: this.tickOfX(x) - hit.note.tick, orig: { ...hit.note }, axisStart: x };
       return;
     }
     const tick = this.pointerTick(e, e.shiftKey);
@@ -139,7 +139,8 @@ export class Timeline {
       return;
     }
     if (d.mode === 'group-move') {
-      applyGroupMove(d, Math.round(snapTick(this.tickOfX(e.offsetX) - d.grab, gridStep() || 1)));
+      const delta = Math.abs(e.offsetX - d.axisStart) < 3 ? 0 : Math.round(snapTick(this.tickOfX(e.offsetX) - d.grab, step || 1));
+      applyGroupMove(d, delta, laneAtY(e.offsetY, this.L));
       return;
     }
     if (d.mode === 'create') {
@@ -151,7 +152,11 @@ export class Timeline {
     if (!note) return;
     const ptr = this.tickOfX(e.offsetX);
     let patch = null;
-    if (d.mode === 'move') patch = movePatch(note, ptr, d.grab, laneAtY(e.offsetY, this.L), step);
+    if (d.mode === 'move') {
+      const moveTick = Math.abs(e.offsetX - d.axisStart) < 3 ? d.orig.tick + d.grab : ptr;
+      const lane = laneAtY(e.offsetY, this.L);
+      patch = movePatch(d.orig, moveTick, d.grab, lane < 0 ? note.lane : lane, step);
+    }
     else if (d.mode === 'resize-end') patch = resizeEndPatch(note, ptr, step);
     else if (d.mode === 'resize-start') patch = resizeStartPatch(d.orig, ptr, step);
     if (patch) applyDragPatch(d, patch);

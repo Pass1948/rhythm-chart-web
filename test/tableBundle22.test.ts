@@ -1,13 +1,15 @@
-// 2.2 단위 테스트: 테이블 개편 — 번들 v2 헤더(15·17열)·행·해시·manifest·구형 연타 차단·생성/편집 경로 닫기
+// Unity 묶음의 표·해시·manifest, 예전 채보 호환, 연타 생성 규칙
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { chartFromJson, chartToJson, findLegacyBursts, newChart } from '../src/core/index.ts';
 import type { ChartV2 } from '../src/core/index.ts';
 import { resolveOptions } from '../src/generate/generate.ts';
 import {
-  BUNDLE_FORMAT, CHART_INFO_HEADER, SONG_INFO_HEADER, UnityBundleError, buildUnityBundle, csvCell,
+  BUNDLE_FORMAT, CHART_INFO_HEADER, SONG_INFO_HEADER, buildUnityBundle, csvCell,
 } from '../src/storage/unityBundle.ts';
 import type { UnityBundle } from '../src/storage/unityBundle.ts';
+import { readBundle } from '../src/storage/bundle.ts';
+import { writeZip } from '../src/storage/zip.ts';
 // @ts-expect-error 편집기 JS 모듈(타입 선언 없음)
 import { BURST_CLOSED_REASON, makeClip, setKeyMode, tryAdd, tryMoveGroup, tryPaste, tryUpdate } from '../src/editor/js/edit_rules.js';
 // @ts-expect-error 편집기 JS 모듈
@@ -140,11 +142,12 @@ describe('2.2 테이블 개편 · 번들 v2', () => {
     expect(JSON.parse(b.files.find((f) => f.name === 'chart_Normal.json')!.data as string).song.artist).toBe('가수');
   });
 
-  it('⑧ 구형 연타가 있으면 전체 번들 중단(난이도·개수 안내), 채보는 그대로', async () => {
+  it('⑧ 구형 연타를 포함한 묶음을 만들고 원본 채보를 보존한다', async () => {
     const chart = makeLegacyChart();
     const before = JSON.stringify(chart);
-    await expect(buildUnityBundle({ chart, audioBlob: audio })).rejects.toThrow(UnityBundleError);
-    await expect(buildUnityBundle({ chart, audioBlob: audio })).rejects.toThrow('EASY 난이도 1개');
+    const bundle = await buildUnityBundle({ chart, audioBlob: audio });
+    const file = bundle.files.find((entry) => entry.name === 'chart_Easy.json')!;
+    expect(JSON.parse(String(file.data)).difficulties[0].notes).toContainEqual(expect.objectContaining({ type: 'burst', lane: 'both' }));
     expect(JSON.stringify(chart)).toBe(before);
   });
 
@@ -164,6 +167,20 @@ describe('2.2 테이블 개편 · 번들 v2', () => {
     easy.notes.push({ id: 9, type: 'tap', lane: 1, tick: 3840 });
     const b = await buildUnityBundle({ chart: legacy, audioBlob: audio });
     expect(b.summary.charts.map((c) => c.difficulty).sort()).toEqual(['Easy', 'Normal']);
+  });
+
+  it('Unity ZIP은 manifest를 건너뛰고 모든 난이도와 음원을 함께 읽는다', async () => {
+    const source = makeLegacyChart();
+    const bundle = await buildUnityBundle({ chart: source, audioBlob: audio });
+    const files = [bundle.files.at(-1)!, ...bundle.files.slice(0, -1)];
+    const restored = await readBundle(await writeZip(files.map((file) => ({
+      name: `${bundle.folder}/${file.name}`, data: file.data,
+    }))));
+    const { chart } = chartFromJson(restored.chartText!);
+    expect(restored.audio?.blob.size).toBe(audio.size);
+    expect(chart.keyMode).toBe(4);
+    expect(chart.difficulties.map((d) => d.name).sort()).toEqual(['EASY', 'NORMAL']);
+    expect(chart.difficulties.find((d) => d.name === 'EASY')?.notes.some((n) => n.type === 'burst')).toBe(true);
   });
 
   it('⑪ artist 저장·재열기 왕복', () => {

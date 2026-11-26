@@ -168,6 +168,7 @@ function validateDifficulty(diff: Difficulty, bpmMap: BpmMap | null, offset: num
       }
     }
     if (ntype === NOTE_BURST) {
+      if (km === 4) add(WARNING, 'legacy_burst', `연타노트 #${nid}: 현재 Unity Chart Sync에서 연타가 포함된 묶음을 가져올 수 없습니다.`, [nid]);
       const c = n.count;
       if (!isInt(c) || !(BURST_MIN_COUNT <= c && c <= BURST_MAX_COUNT)) {
         add(ERROR, 'bad_count', `연타노트 #${nid}: 연타 횟수는 ${BURST_MIN_COUNT}~${BURST_MAX_COUNT}회여야 합니다 (현재 ${String(c)}).`, [nid]);

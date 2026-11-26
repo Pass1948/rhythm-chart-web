@@ -403,7 +403,7 @@ export async function loadJson(file) {
     const bundle = await api.readBundle(file); // ZIP 이 아니면 null
     if (bundle) return await loadBundle(bundle);
     if (!S.chart) return status('먼저 곡을 열어 주세요. JSON 은 열린 곡에 불러옵니다.', 'warn');
-    await applyChartObject(JSON.parse(await file.text()));
+    await applyChartObject(JSON.parse((await file.text()).replace(/^\uFEFF/, '')));
   } catch (e) {
     status(e instanceof SyntaxError ? 'JSON 형식이 올바르지 않습니다.' : e.message, 'error');
   }
@@ -453,8 +453,8 @@ async function applyChartObject(obj) {
   S.chart = chart;
   syncKeyMode(); // 불러온 채보의 keyMode(2/4)를 편집 규칙에 알린다
   S.diffIndex = 0;
-  S.selectedId = null;
   rebuildTiming();
+  setSelection([]);
   commit(before);
   emit('timing');
   emit('song');
@@ -474,13 +474,7 @@ export async function exportChart(what, kind, split) {
       else status('저장을 취소했습니다.');
     }
   } catch (e) {
-    if (e.status === 422 && e.data) {
-      S.issues = e.data.issues || [];
-      emit('health');
-      status(e.message, 'error');
-    } else {
-      status(e.message, 'error');
-    }
+    status(e.message, 'error');
   }
 }
 

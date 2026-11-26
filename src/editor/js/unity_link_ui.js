@@ -1,6 +1,6 @@
 // 내보내기 창의 "유니티 묶음 (4키)" 영역: 유니티 폴더 연결·[유니티로 보내기]·[ZIP으로 저장]
 import { api } from '../../app/localApi.js';
-import { S, emit, status } from './state.js';
+import { S, status } from './state.js';
 import { exportChart } from './actions.js';
 import { UnityLinkError, isLinkSupported, readLinkMarker, sendBundleToDir } from '../../storage/unityLink.ts';
 import { clearLink, loadLink, saveLink } from '../../storage/unityLinkStore.ts';
@@ -73,16 +73,7 @@ async function send() {
     if (h.queryPermission && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') {
       if (!h.requestPermission || (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') return say('폴더 쓰기 권한이 필요합니다.', true);
     }
-    let bundle;
-    try {
-      bundle = await api.prepareUnityBundle({ song: S.song, chart: S.chart });
-    } catch (e) {
-      if (e.status === 422 && e.data) {
-        S.issues = e.data.issues || [];
-        emit('health');
-      }
-      return say(e.message, true);
-    }
+    const bundle = await api.prepareUnityBundle({ song: S.song, chart: S.chart });
     try {
       await sendBundleToDir(h, bundle, (n, total) => say(`${n}/${total} 쓰는 중…`));
     } catch (e) {

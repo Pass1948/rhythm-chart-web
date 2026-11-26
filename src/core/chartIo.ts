@@ -22,7 +22,7 @@ import {
 import type { ChartNote, ChartV2, Difficulty } from './schema.ts';
 import { BpmMap } from './timing.ts';
 import { cloneJson, fmtG, pyRound } from './util.ts';
-import { ERROR, hasErrors, validateIssues } from './validate.ts';
+import { validateIssues } from './validate.ts';
 import type { Issue } from './validate.ts';
 
 /** 채보 파일 형식이 잘못되었거나 지원하지 않는 버전일 때. */
@@ -30,17 +30,6 @@ export class ChartFormatError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ChartFormatError';
-  }
-}
-
-/** 오류가 있어 내보내기를 막을 때. issues에 검사 결과(오류만)가 들어 있다. */
-export class ExportBlocked extends Error {
-  issues: Issue[];
-  constructor(issues: Issue[]) {
-    const count = issues.filter((i) => i.level === ERROR).length;
-    super(`채보에 오류가 ${count}개 있어 내보낼 수 없습니다. 먼저 오류를 고쳐 주세요.`);
-    this.name = 'ExportBlocked';
-    this.issues = issues;
   }
 }
 
@@ -93,17 +82,45 @@ export function chartFromJson(text: string): LoadResult {
   return loadChartData(data);
 }
 
+function hasFourKeyMarker(chart: Record<string, unknown>): boolean {
+  return [chart.keyMode, chart.key_mode, chart.lanes].some((value) => value === 4 || value === '4')
+    || [chart.format, chart.schema_version].some((value) => /^four-key-(?:chart|unity)(?:\.|$)/i.test(String(value)));
+}
+
+/** 버전 번호와 상관없이 밀리초를 쓰는 4키 내보내기 형식을 알아본다. */
+export function isFourKeyUnityData(data: unknown): data is { difficulties: UnityDifficulty[] } {
+  if (data === null || typeof data !== 'object') return false;
+  const chart = data as Record<string, unknown>;
+  if (!hasFourKeyMarker(chart) || !Array.isArray(chart.difficulties)) return false;
+  return /^four-key-unity\./i.test(String(chart.format ?? chart.schema_version))
+    || chart.difficulties.some((diff) => Array.isArray(diff?.notes)
+      && diff.notes.some((note: unknown) => typeof note === 'object' && note !== null && 'time_ms' in note));
+}
+
 /** 이미 읽은 객체를 버전에 맞게 처리한다. */
 export function loadChartData(data: unknown): LoadResult {
   if (data === null || typeof data !== 'object' || Array.isArray(data)) throw new ChartFormatError('채보 파일 형식이 아닙니다.');
   const obj = data as Record<string, unknown>;
   const version = obj.schema_version;
-  if (version === 'two-key-chart.v1' || (version === undefined && Array.isArray(obj.notes))) {
+  if (isFourKeyUnityData(obj)) {
+    const chart = importUnityFourKey(obj, obj.difficulties);
+    return { chart, issues: validateIssues(chart), converted_from: 2, conversion_notes: ['4키 채보의 밀리초 시각을 편집용 틱으로 변환했습니다.'] };
+  }
+  const fourKey = hasFourKeyMarker(obj);
+  if (!fourKey && (version === 'two-key-chart.v1' || (version === undefined && Array.isArray(obj.notes)))) {
     const [chart, notes] = convertV1ToV2(obj);
     return { chart, issues: validateIssues(chart), converted_from: 1, conversion_notes: notes };
   }
-  if (version === SCHEMA_VERSION) {
+  if (version === SCHEMA_VERSION || (fourKey && Array.isArray(obj.difficulties))) {
     const chart = normalizeV2(obj as unknown as ChartV2);
+    if (fourKey) {
+      chart.schema_version = SCHEMA_VERSION;
+      chart.keyMode = 4;
+      chart.lanes = 4;
+      for (const diff of chart.difficulties) {
+        if (typeof diff.name === 'string') diff.name = normalizeFourKeyDifficulty(diff.name);
+      }
+    }
     const fixed = convertBurstLanes(chart);
     if (fixed) {
       return {
@@ -115,12 +132,56 @@ export function loadChartData(data: unknown): LoadResult {
         ],
       };
     }
-    return { chart, issues: validateIssues(chart), converted_from: 0, conversion_notes: [] };
+    const migrated = fourKey && version !== SCHEMA_VERSION;
+    return {
+      chart, issues: validateIssues(chart), converted_from: migrated ? 2 : 0,
+      conversion_notes: migrated ? ['4키 채보를 현재 편집 형식으로 열었습니다.'] : [],
+    };
   }
   if (typeof version === 'number' && version > SCHEMA_VERSION) {
     throw new ChartFormatError(`더 새로운 버전(${version})의 채보 파일입니다. 프로그램을 업데이트해 주세요.`);
   }
   throw new ChartFormatError(`알 수 없는 채보 버전입니다: ${String(version)}`);
+}
+
+function normalizeFourKeyDifficulty(name: string): string {
+  const upper = name.toUpperCase();
+  if (upper === 'GLITCH') return 'GLIITCH';
+  return ['EASY', 'NORMAL', 'HARD', 'GLIITCH', 'CUSTOM'].includes(upper) ? upper : name;
+}
+
+/** Unity에 저장된 밀리초는 그대로 맞추고, 파일에 없는 박자표는 기본값을 쓴다. */
+function importUnityFourKey(obj: Record<string, unknown>, rows: UnityDifficulty[]): ChartV2 {
+  const song = (obj.song ?? {}) as Partial<ChartV2['song']>;
+  let offset = 0;
+  for (const row of rows) {
+    if (typeof row?.name !== 'string' || !Array.isArray(row.notes)
+      || row.notes.some((note) => !Number.isFinite(note?.time_ms))) {
+      throw new ChartFormatError('4키 채보의 난이도 또는 노트 시각을 읽을 수 없습니다.');
+    }
+    for (const note of row.notes) offset = Math.min(offset, note.time_ms);
+  }
+  const chart = newChart(song.title, song.artist, song.audio_file, song.duration_ms, offset);
+  chart.keyMode = 4;
+  chart.lanes = 4;
+  const map = new BpmMap(chart.timing.bpm_map);
+  chart.difficulties = rows.map((row) => ({
+    name: normalizeFourKeyDifficulty(row.name),
+    level: row.level ?? 0,
+    notes: row.notes.map((note, index) => {
+      const tick = map.msToTickInt(note.time_ms - offset);
+      const result: ChartNote = { id: index + 1, type: note.type, lane: note.lane as ChartNote['lane'], tick };
+      if (note.type !== NOTE_TAP) {
+        result.length_tick = map.msToTickInt(note.time_ms + note.duration_ms - offset) - tick;
+      }
+      if (note.type === NOTE_BURST) {
+        result.lane = LANE_BOTH;
+        result.count = note.count;
+      }
+      return result;
+    }),
+  }));
+  return chart;
 }
 
 /** v2 데이터의 빠진 항목을 기본값으로 채운다. 값 자체는 바꾸지 않아 검증에서 문제를 잡을 수 있게 한다. */
@@ -132,6 +193,7 @@ function normalizeV2(data: ChartV2): ChartV2 {
     if ((chart.song as unknown as Record<string, unknown>)[k] === undefined) (chart.song as unknown as Record<string, unknown>)[k] = v;
   }
   chart.timing = chart.timing ?? base.timing;
+  if (chart.timing.bpm_map === undefined) chart.timing.bpm_map = base.timing.bpm_map;
   if (chart.timing.resolution === undefined) chart.timing.resolution = RESOLUTION;
   if (chart.timing.grid_map === undefined) chart.timing.grid_map = base.timing.grid_map;
   if (chart.sections === undefined) chart.sections = [];
@@ -352,12 +414,10 @@ export function buildUnityData(chart: ChartV2): UnityChart {
 }
 
 /**
- * 계약 함수: Unity용 내보내기 데이터. 오류가 있으면 ExportBlocked.
+ * Unity용 내보내기 데이터. 채보 검사 내용은 편집기의 검사 목록에 표시한다.
  * difficulty 를 주면 그 난이도 하나만 담는다(없으면 모든 난이도).
  */
 export function exportUnity(chart: ChartV2, difficulty?: string): UnityChart {
-  const issues = validateIssues(chart);
-  if (hasErrors(issues)) throw new ExportBlocked(issues.filter((i) => i.level === ERROR));
   const data = buildUnityData(chart);
   if (difficulty !== undefined) {
     const found = data.difficulties.filter((d) => d.name === difficulty);

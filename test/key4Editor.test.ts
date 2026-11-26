@@ -1,4 +1,4 @@
-// 10단계 단위 테스트(편집기 순수 규칙): ④ 4키 편집 규칙(동시 3개 거절, 레인 뒤집기 i↔3-i, 연타 4레인) + 음원 카드 4줄 판정
+// 4키 편집, 레인 이동·뒤집기, 음원 카드 판정
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error 편집기 JS 모듈(타입 선언 없음)
 import { flipClip, healthStats, makeClip, setKeyMode, swapLane, tryAdd, tryMoveGroup, tryPaste, tryUpdate, idsInArea, laneText } from '../src/editor/js/edit_rules.js';
@@ -24,30 +24,23 @@ describe('④ 4키 편집 규칙', () => {
     expect(tryAdd([], { type: 'tap', lane: 2, tick: 0 }).ok).toBe(false);
     expect(tryAdd([], { type: 'tap', lane: 1, tick: 0 }).ok).toBe(true);
   });
-  it('같은 시각 3번째 노트는 거절하고 이유를 알린다 (2키는 제한 없음)', () => {
+  it('동시 입력 수와 같은 레인 중복이 편집을 막지 않는다', () => {
     const base = [tap(1, 0, 960), tap(2, 3, 960)];
     setKeyMode(4);
     const r = tryAdd(base, { type: 'tap', lane: 1, tick: 960 });
-    expect(r.ok).toBe(false);
-    expect(r.reason).toContain('최대 2개');
+    expect(r.ok).toBe(true);
     expect(tryAdd(base, { type: 'tap', lane: 1, tick: 1920 }).ok).toBe(true);
-    // 이동으로 3번째가 되는 경우도 거절
     const moved = tryUpdate([...base, tap(3, 1, 1920)], 3, { tick: 960 });
-    expect(moved.ok).toBe(false);
-    // 같은 레인 같은 위치는 기존 규칙대로 거절
-    expect(tryAdd(base, { type: 'tap', lane: 0, tick: 960 }).ok).toBe(false);
+    expect(moved.ok).toBe(true);
+    expect(tryAdd(base, { type: 'tap', lane: 0, tick: 960 }).ok).toBe(true);
   });
-  it('롱노트 유지 포함 동시 입력 합 2개까지만 (롱노트를 새로 얹는 경우도 검사, [13])', () => {
+  it('롱노트 구간에 겹치는 노트를 편집할 수 있다', () => {
     setKeyMode(4);
     const notes = [hold(1, 0, 0, 4000), tap(2, 1, 960), tap(3, 2, 960)];
-    expect(tryAdd(notes, { type: 'tap', lane: 3, tick: 960 }).ok).toBe(false); // 같은 시각 3개
-    expect(tryAdd([hold(1, 0, 0, 4000), hold(2, 2, 0, 4000)], { type: 'tap', lane: 3, tick: 960 }).ok).toBe(false); // 유지 2 + 시작 1 = 3
-    expect(tryAdd([hold(1, 0, 0, 4000)], { type: 'tap', lane: 3, tick: 960 }).ok).toBe(true); // 유지 1 + 시작 1 = 2
-    const two = [hold(1, 0, 0, 4000), hold(2, 1, 0, 4000), tap(3, 2, 960), tap(4, 3, 960)];
-    expect(tryAdd([hold(1, 0, 0, 4000), tap(3, 2, 960), tap(4, 3, 960)], { type: 'hold', lane: 1, tick: 0, length_tick: 4000 }).ok).toBe(false); // 롱노트를 얹으면 합 4
-    expect(two.length).toBe(4);
-    // 롱노트 진행 중인 레인에는 다른 노트 금지(기존 규칙)
-    expect(tryAdd([hold(1, 0, 0, 4000)], { type: 'tap', lane: 0, tick: 960 }).ok).toBe(false);
+    expect(tryAdd(notes, { type: 'tap', lane: 3, tick: 960 }).ok).toBe(true);
+    expect(tryAdd([hold(1, 0, 0, 4000), hold(2, 2, 0, 4000)], { type: 'tap', lane: 3, tick: 960 }).ok).toBe(true);
+    expect(tryAdd(notes, { type: 'hold', lane: 1, tick: 0, length_tick: 4000 }).ok).toBe(true);
+    expect(tryAdd([hold(1, 0, 0, 4000)], { type: 'tap', lane: 0, tick: 960 }).ok).toBe(true);
   });
   it('좌우 뒤집기: 4키 i ↔ 3-i, 연타는 그대로 / 2키 0↔1', () => {
     setKeyMode(4);
@@ -59,21 +52,22 @@ describe('④ 4키 편집 규칙', () => {
     setKeyMode(2);
     expect(swapLane([tap(9, 0, 0)], 9).note.lane).toBe(1);
   });
-  it('붙여넣기·그룹 이동도 4키 규칙을 따른다 (전체 성공 또는 전체 취소)', () => {
+  it('겹치는 위치에 붙여넣고 여러 노트를 시간과 레인 방향으로 이동한다', () => {
     setKeyMode(4);
     const notes = [tap(1, 0, 960), tap(2, 3, 960), tap(3, 1, 2880)];
     const clip = makeClip(notes, [3]);
-    const bad = tryPaste(notes, clip, 960);
-    expect(bad.ok).toBe(false);
+    expect(tryPaste(notes, clip, 960).ok).toBe(true);
     const ok = tryPaste(notes, clip, 4800, null, true);
     expect(ok.ok).toBe(true);
     expect(ok.notes.find((n: { tick: number }) => n.tick === 4800).lane).toBe(2); // 1 → 3-1
-    expect(tryMoveGroup(notes, [3], -1920).ok).toBe(false); // 같은 시각 3번째
+    expect(tryMoveGroup(notes, [3], -1920).ok).toBe(true);
+    expect(tryMoveGroup(notes, [1, 3], 0, null, 1).notes).toEqual([tap(1, 1, 960), notes[1], tap(3, 2, 2880)]);
+    expect(tryMoveGroup(notes, [1, 2], 0, null, 1).ok).toBe(false); // 네 레인 범위 밖
   });
-  it('연타는 4레인 전체: 구간 안 어느 레인 노트도 거절, 영역 선택·건강검진은 4레인', () => {
+  it('구형 연타 구간에서도 노트를 편집하며 영역 선택과 건강검진은 4레인을 사용한다', () => {
     setKeyMode(4);
     const notes = [burst(1, 1000, 1920), tap(2, 2, 5000)];
-    expect(tryAdd(notes, { type: 'tap', lane: 3, tick: 1500 }).ok).toBe(false);
+    expect(tryAdd(notes, { type: 'tap', lane: 3, tick: 1500 }).ok).toBe(true);
     expect(tryAdd(notes, { type: 'burst', lane: 'both', tick: 3000, length_tick: 960, count: 8 }).ok).toBe(false); // 2.2: 새 연타는 만들 수 없다
     expect(idsInArea(notes, { t0: 1500, t1: 1600, lanes: [3], pad: 0 })).toEqual([1]);
     const h = healthStats([tap(1, 0, 0), tap(2, 3, 960), tap(3, 3, 1920), burst(4, 4000, 960)], (t: number) => t);

@@ -1,6 +1,6 @@
 // 세로 편집기 (이번 버전의 메인 편집기): 시간이 아래→위로 흐르고 왼쪽·오른쪽 2레인이 나란히 있다.
 // 그리기와 마우스 조작만 담당하고, 둘 수 있는지의 판단은 edit_rules.js 에 맡긴다.
-import { FOUR_KEY_LABELS, LANE_BOTH, MIN_LONG_TICKS, burstCountForLength, burstLengthForCount, clampBurstCount, fitBurstLength, conflictReason, idsInArea, isLong, noteEnd, snapTick, toggleId, tryAdd, tryMoveGroup, tryUpdate, unionIds, burstRate } from './edit_rules.js';
+import { FOUR_KEY_LABELS, LANE_BOTH, MIN_LONG_TICKS, burstCountForLength, burstLengthForCount, clampBurstCount, fitBurstLength, idsInArea, isLong, noteEnd, snapTick, toggleId, tryAdd, tryMoveGroup, tryUpdate, unionIds, burstRate } from './edit_rules.js';
 import { COLORS, drawBurst, drawHold, drawHoldBar, drawTap, drawTapBar } from './shapes.js';
 import { barHeight, circleRadius, longHitHalfW, noteDrawWidth, tapHit, tapOutlineHalf, tapPadPx } from './note_shape.js';
 import { fillWavePixels, stripWidth, waveColors } from './wave_strip.js';
@@ -182,8 +182,9 @@ export class VerticalEditor {
       if (Math.abs(x - g.cx) > halfW) continue;
       const top = Math.min(g.y0, g.y1);
       const bottom = Math.max(g.y0, g.y1);
-      if (Math.abs(y - top) <= HANDLE) return { note: n, part: 'top' };
-      if (Math.abs(y - bottom) <= HANDLE) return { note: n, part: 'bottom' };
+      const handle = Math.min(HANDLE, (bottom - top) / 3);
+      if (Math.abs(y - top) <= handle) return { note: n, part: 'top' };
+      if (Math.abs(y - bottom) <= handle) return { note: n, part: 'bottom' };
       if (y > top && y < bottom) return { note: n, part: 'body' };
     }
     return null;
@@ -237,15 +238,14 @@ export class VerticalEditor {
         return;
       }
       if (S.selectedIds.length > 1 && S.selectedIds.includes(hit.note.id)) {
-        // 여러 개 선택된 노트 위를 끌면 한꺼번에 위아래로 옮긴다
-        this.drag = { mode: 'group-move', hitId: hit.note.id, before, changed: false, ids: [...S.selectedIds], base: JSON.parse(JSON.stringify(notes())), grab: this.tickOfY(y) };
+        this.drag = { mode: 'group-move', hitId: hit.note.id, before, changed: false, ids: [...S.selectedIds], base: notes(), grab: this.tickOfY(y), grabLane: lane, axisStart: y };
         return;
       }
       select(hit.note.id);
       const mode = hit.part === 'top' ? 'resize-top' : hit.part === 'bottom' ? 'resize-bottom' : 'move';
       this.drag = {
         mode, id: hit.note.id, before, changed: false,
-        grab: this.tickOfY(y) - hit.note.tick, orig: { ...hit.note },
+        grab: this.tickOfY(y) - hit.note.tick, orig: { ...hit.note }, axisStart: y,
       };
       return;
     }
@@ -286,8 +286,8 @@ export class VerticalEditor {
       return;
     }
     if (d.mode === 'group-move') {
-      const delta = Math.round(snapTick(this.tickOfY(e.offsetY) - d.grab, gridStep() || 1));
-      applyGroupMove(d, delta);
+      const delta = Math.abs(e.offsetY - d.axisStart) < 3 ? 0 : Math.round(snapTick(this.tickOfY(e.offsetY) - d.grab, step || 1));
+      applyGroupMove(d, delta, this.laneOfX(x));
       return;
     }
     if (d.mode === 'create') {
@@ -299,7 +299,11 @@ export class VerticalEditor {
     if (!note) return;
     const ptr = this.tickOfY(e.offsetY);
     let patch = null;
-    if (d.mode === 'move') patch = movePatch(note, ptr, d.grab, this.laneOfX(x), step); // 연타노트는 세로로만 이동
+    if (d.mode === 'move') {
+      const moveTick = Math.abs(e.offsetY - d.axisStart) < 3 ? d.orig.tick + d.grab : ptr;
+      const lane = this.laneOfX(x);
+      patch = movePatch(d.orig, moveTick, d.grab, lane < 0 ? note.lane : lane, step);
+    }
     else if (d.mode === 'resize-top') patch = resizeEndPatch(note, ptr, step);
     else if (d.mode === 'resize-bottom') patch = resizeStartPatch(d.orig, ptr, step);
     if (patch) applyDragPatch(d, patch); // 음원 카드 타임라인과 같은 함수 (note_ops.js)
