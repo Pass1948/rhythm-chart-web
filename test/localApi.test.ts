@@ -114,6 +114,8 @@ describe('로컬 API: 곡 흐름', () => {
     const opened = await api.getChart(info.id);
     const chart = opened.chart;
     chart.difficulties = [gen.difficulty];
+    chart.keyMode = gen.chart.keyMode;
+    chart.lanes = gen.chart.lanes;
     chart.timing = gen.chart.timing;
     chart.song.audio_offset_ms = gen.chart.song.audio_offset_ms;
     const v = await api.validate(chart);
@@ -254,6 +256,8 @@ describe('로컬 API: 채보 도구와 내보내기', () => {
     const gen = await api.generate({ song: info.id, difficulty: 'NORMAL', grid_division: 8 });
     const { chart } = await api.getChart(info.id);
     chart.difficulties = [gen.difficulty];
+    chart.keyMode = gen.chart.keyMode;
+    chart.lanes = gen.chart.lanes;
     chart.timing = gen.chart.timing;
     chart.song.audio_offset_ms = gen.chart.song.audio_offset_ms;
 
@@ -264,7 +268,7 @@ describe('로컬 API: 채보 도구와 내보내기', () => {
     const unity = await api.exportChart({ song: info.id, chart, kind: 'unity', split: false });
     expect(unity.exported).toEqual(['테스트곡_unity.json']);
     const u = JSON.parse(downloads[1]!.text);
-    expect(u.format).toBe('two-key-unity.v2');
+    expect(u.format).toBe('four-key-unity.v2');
     expect(u.difficulties[0].notes).toHaveLength(gen.stats.total);
     expect(u.difficulties[0].notes.every((n: { time_ms: number }) => Number.isInteger(n.time_ms))).toBe(true);
 

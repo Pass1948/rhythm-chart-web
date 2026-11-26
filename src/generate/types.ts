@@ -24,6 +24,7 @@ export interface SnappedCandidate extends Candidate {
 
 /** 생성 옵션(GenerateOptions): 사용자가 주는 값. 빠진 항목은 난이도 프리셋·기본값이 채운다. */
 export interface GenerateOptions {
+  hold_percent?: number;
   ratios?: { tap: number; hold: number; burst: number };
   hold_beats?: number;
   burst_count?: number;

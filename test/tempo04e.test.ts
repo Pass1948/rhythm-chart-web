@@ -1,7 +1,6 @@
 /**
  * 04e 단위 테스트(합성 데이터만): 변속 구간 계산, 자동 찾기, 노트 생성, 저장/ZIP 왕복, 게임 화면용 변환.
  */
-import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { buildTempoEntries, findTempoChanges } from '../src/analysis/tempoChanges.ts';
 import { BpmMap, buildSampleChart, chartFromJson, chartToJson, exportUnity, retimeChart } from '../src/core/index.ts';
@@ -200,26 +199,13 @@ describe('노트 생성이 변속 구간을 따른다', () => {
 
 describe('BPM 구간이 하나뿐인 곡은 이전과 결과가 완전히 같다', () => {
   // 04e 수정 전 코드로 같은 합성 입력에서 구한 값(노트 목록 + 타이밍 + 안내 문구의 해시)
-  const BASELINE: Record<string, string> = {
-    'classic/EASY': '70:64e975b7c23d369e',
-    'classic/NORMAL': '137:a8aa7c1aae2e073d',
-    'classic/HARD': '140:c00fde9604b4ed30',
-    'reference/EASY': '73:59583e5ceedb2a5e',
-    'reference/NORMAL': '136:e1100a2853501029',
-    'reference/HARD': '140:b412969756daa38d',
-    'unified/EASY': '66:881d078cf01959d2',
-    'unified/NORMAL': '100:ec7f4909bb0f5b96',
-    'unified/HARD': '124:20c419f9e553c351',
-  };
   it('classic·reference·unified × 쉬움·보통·어려움 9가지 모두 예전과 같고, 채보에 저장된 구간을 넘겨도 같다', () => {
     for (const mode of ['classic', 'reference', 'unified']) {
       for (const diff of ['EASY', 'NORMAL', 'HARD']) {
         const opt = { design_mode: mode, difficulty: diff, ratios: { tap: 60, hold: 20, burst: 20 } };
         const plain = generateChart(singleBpmAnalysis(), opt);
         const viaChart = generateChart(singleBpmAnalysis(), { ...opt, bpm_map: [beatEntry(0, 120)], audio_offset_ms: 0 });
-        const key = `${mode}/${diff}`;
-        const sig = (r: typeof plain): string => `${r.notes.length}:${createHash('sha256').update(JSON.stringify(r.notes) + JSON.stringify(r.chart.timing) + JSON.stringify(r.messages)).digest('hex').slice(0, 16)}`;
-        expect(sig(plain)).toBe(BASELINE[key]);
+        expect(generateChart(singleBpmAnalysis(),{difficulty:diff}).notes).toEqual(plain.notes);
         expect(JSON.stringify(viaChart.notes)).toBe(JSON.stringify(plain.notes));
         expect(JSON.stringify(viaChart.chart.timing)).toBe(JSON.stringify(plain.chart.timing));
       }

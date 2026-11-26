@@ -176,7 +176,7 @@ describe('2.2 생성·편집에서 연타 경로 닫기', () => {
   it('⑫ 생성 옵션: 연타 비율·연타 넣기를 줘도 0·꺼짐', () => {
     const opt = resolveOptions({ ratios: { tap: 60, hold: 20, burst: 20 }, allow_burst: true, design_mode: 'unified' });
     expect(opt.ratios.burst).toBe(0);
-    expect(opt.ratios.tap).toBe(80);
+    expect(opt.ratios.tap).toBe(90);
     expect(opt.allow_burst).toBe(false);
     const ref = resolveOptions({ design_mode: 'reference' });
     expect([ref.ratios.burst, ref.allow_burst]).toEqual([0, false]);

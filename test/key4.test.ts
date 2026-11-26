@@ -107,11 +107,8 @@ describe('③ 4키 생성 규칙', () => {
       expect(run).toBeLessThanOrEqual(2);
     }
   });
-  it('2키로 만든 결과는 keyMode 필드가 없고 레인 0·1 만 쓴다', async () => {
-    const r = await make({ key_mode: 2 });
-    expect('keyMode' in r.chart).toBe(false);
-    expect(r.chart.lanes).toBe(2);
-    for (const n of r.notes) if (n.type !== 'burst') expect([0, 1]).toContain(n.lane);
+  it('옛 생성 옵션도 4키로 생성', async()=>{
+    expect((await make({key_mode:2})).notes).toEqual((await make()).notes);
   });
 });
 
