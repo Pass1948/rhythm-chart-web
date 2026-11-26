@@ -1,0 +1,114 @@
+/* 글꼴: 글꼴 파일은 넣지 않는다(사용자 결정). PC에 설치된 Pretendard가 있으면 쓰고, 없으면 시스템 글꼴. 외부 주소 호출 없음. */
+/* 디자인 토큰: 화면(CSS)과 Canvas(js/theme.js)가 같은 값을 쓴다. 색을 다른 곳에 따로 적지 않는다. */
+:root{
+  color-scheme:light;
+  /* 면 */
+  --bg-app:#f5f5f7;
+  --bg-panel:#ffffff;
+  --bg-soft:#fafafc;
+  --bg-canvas:#252527;
+  --bg-canvas-2:#272729;
+  --bg-canvas-3:#2a2a2c;
+  /* 글자 */
+  --text:#1d1d1f;
+  --text-2:#333333;
+  --text-muted:#6e6e73;            /* 흰 면 위 대비 5:1 (문서의 #7a7a7a 보다 한 단계 진하게) */
+  --text-on-dark:#ffffff;
+  --text-on-dark-muted:#cccccc;
+  --text-on-dark-dim:#a0a0a5;      /* 어두운 캔버스 위 작은 글씨 (대비 4.5:1 이상) */
+  /* 선 */
+  --line:#e0e0e0;
+  --line-soft:#f0f0f0;
+  /* 액션 */
+  --action:#0066cc;
+  --action-hover:#0058b0;
+  --focus:#0071e3;
+  --link-dark:#2997ff;
+  /* 상태 (밝은 면 / 어두운 면) */
+  --ok:#17794a;      --ok-bg:#e7f5ee;      --ok-dark:#5fd6a5;
+  --warn:#8a5a00;    --warn-bg:#fff4d9;    --warn-dark:#ffcf6b;
+  --bad:#c4281c;     --bad-bg:#fdeceb;     --bad-dark:#ff8a80;
+  /* 노트 색 (정보 색, 별도 유지) */
+  --note-tap:#6cc3ff;
+  --note-hold:#5fd6a5;
+  --note-hold-fill:rgba(95,214,165,0.78);
+  --note-burst:#ffb454;
+  --note-burst-fill:rgba(255,180,84,0.82);
+  --note-outline-tap:#d8efff;
+  --note-outline-hold:#c9f5e5;
+  --note-outline-burst:#ffe2b8;
+  --note-burst-text:#2b1800;
+  --onset:#d9b8ff;
+  --paste-ok:#5fd6a5;
+  --paste-bad:#ff6b6b;
+  /* 캔버스 보조색 */
+  --grid-bar:rgba(255,255,255,0.34);
+  --grid-beat:rgba(255,255,255,0.15);
+  --grid-fine:rgba(255,255,255,0.06);
+  /* 파형 띠(편집 화면 오른쪽): 저음 = 주황, 중음 = 초록·청록, 고음 = 하늘·흰 계열 */
+  --wv-bg:#161618; --wv-low:#ff9a3d; --wv-mid:#3fd6a0; --wv-high:#8fd8ff; --wv-center:rgba(255,255,255,0.18); --wv-sel:#ffffff;
+  --tempo-line:#ffd166; --tempo-cand:#c792ff; /* 변속 지점 점선 · 자동 찾기 후보 점선 */
+  --playhead:#ffffff;
+  --select-outer:#ffffff;
+  --select-inner:#1d1d1f;
+  --marquee:#ffffff;
+  --wave:rgba(255,255,255,0.55);
+  --view-window:rgba(255,255,255,0.10);
+  --lane-held:#3a3a3d;
+  /* 모서리·간격·글꼴·전환 */
+  --r-sm:8px;
+  --r-panel:20px;
+  --r-pill:999px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+    --font:Pretendard,system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  --fs-control:14px; --fs-small:12px; --fs-title:18px;
+  --h-control:36px; --h-primary:44px;
+  --card-pad:20px; --card-gap:16px; --r-card:20px;
+  --action-soft:#e5f0fb;
+  --action-text:#0066cc;           /* 파란 글자(선택된 묶음 버튼·목록 선택 등) */
+  --play-bg:#1d1d1f; --play-fg:#ffffff; --play-hover:#333333;   /* ▶ 버튼 */
+  --toast-bg:#1d1d1f; --toast-fg:#ffffff;
+  --chip-text:#1d1d1f;             /* 노트 색 칩 위 글자 */
+  --lane-pill:rgba(15,15,16,0.72); /* 캔버스 레인 글자 뒤 알약 */
+  --backdrop:rgba(0,0,0,0.35);     /* 대화상자 뒷배경 */
+  --fw:400; --fw-strong:600;
+  --t:120ms;
+  /* 화면 크기 기준(계약 7번, 04b에서 단일 기준으로 바꿈): 이 폭 이상은 PC 3열, 그보다 좁으면 하단 탭. CSS 미디어 쿼리 안에서는 변수를 못 쓰므로 같은 숫자를 ui/layout/layout.css 에도 적는다 */
+  --bp-pc:1024px;
+  --tabbar-h:56px; --touch:44px;
+}
+/* 다크 모드: <html data-theme="dark"> 일 때 면·글자·선·상태색만 바꾼다. 노트 색·선택·재생선은 그대로(어두운 캔버스 위에서 구분됨). */
+[data-theme="dark"]{
+  color-scheme:dark;
+  --bg-app:#0b0b0c;
+  --bg-panel:#1d1d1f;
+  --bg-soft:#272729;
+  --bg-canvas:#0f0f10;
+  --bg-canvas-2:#131314;
+  --bg-canvas-3:#18181a;
+  --text:#f5f5f7;
+  --text-2:#d2d2d7;
+  --text-muted:#a1a1a6;
+  --line:rgba(255,255,255,0.14);
+  --line-soft:rgba(255,255,255,0.08);
+  --action:#0071e3;
+  --action-hover:#1a82ee;
+  --focus:#2997ff;
+  --action-soft:rgba(41,151,255,0.18);
+  --action-text:#64b5ff;
+  --play-bg:#f5f5f7; --play-fg:#1d1d1f; --play-hover:#d2d2d7;
+  --toast-bg:#f5f5f7; --toast-fg:#1d1d1f;
+  --ok:#5fd6a5;   --ok-bg:rgba(95,214,165,0.16);
+  --warn:#ffcf6b; --warn-bg:rgba(255,207,107,0.16);
+  --bad:#ff8a80;  --bad-bg:rgba(255,138,128,0.16);
+  --lane-held:#2a2a2e;
+  --wv-bg:#0a0a0c; --wv-low:#ffa94d; --wv-mid:#46e0b0; --wv-high:#c4ecff; --wv-center:rgba(255,255,255,0.22);
+  --backdrop:rgba(0,0,0,0.6);
+}
+/* 촘촘한 모드: 창 높이 820px 이하 */
+@media (max-height:820px){
+  :root{--card-pad:14px;--card-gap:12px;--h-control:32px;--fs-title:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  :root{--t:0ms}
+}

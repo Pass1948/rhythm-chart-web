@@ -1,0 +1,78 @@
+<!-- [테스트] 팝업 화면 조각: 원본 test.html 의 화면 구조(DOM)를 그대로 따른다. app/main.ts 가 #rcw-test 주소에서 이 조각을 넣고 js/test_popup.js 를 불러온다. -->
+<style>
+body{min-width:0;min-height:0;padding:var(--s3);align-items:center;height:auto;overflow-y:auto}#startBtn,#pauseBtn{white-space:nowrap;min-width:90px;flex:none}.hud .help{flex:1;min-width:0;margin:0}
+#game{width:100%;max-width:480px;height:560px;border-radius:var(--r-panel);background:var(--bg-canvas);touch-action:none;flex:none}
+.hud{display:flex;justify-content:space-between;width:100%;max-width:480px;margin:6px 0;gap:var(--s2);align-items:center}
+.big{font-size:var(--fs-title);font-weight:var(--fw-strong)}
+#judgeText.j-perfect{color:var(--ok)}#judgeText.j-miss{color:var(--bad)}#judgeText.j-auto{color:var(--warn)}
+#result,#settings,#pauseBox{width:100%;max-width:480px;margin-top:var(--s2)}
+#result .line{line-height:1.7}
+.hist{display:grid;grid-template-columns:62px 1fr 28px;gap:2px 6px;align-items:center;font-size:11px;color:var(--text-muted);margin:6px 0}
+.hist .bar{height:8px;background:var(--action);border-radius:3px;min-width:1px}
+.set-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:7px 0}
+.set-row label{min-width:96px;color:var(--text-2)}
+.set-row input[type=number]{width:70px;height:32px;background:var(--bg-panel);border:1px solid var(--line);border-radius:var(--r-sm);padding:0 6px}
+.set-row input[type=range]{flex:1;min-width:120px}
+.keycap{display:inline-block;min-width:34px;text-align:center;padding:3px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg-soft);font-weight:var(--fw-strong)}
+.keycap.wait{border-color:var(--warn);color:var(--warn)}
+#settingsMsg{min-height:18px;color:var(--warn);font-size:var(--fs-small);margin:4px 0}
+#measureBox{border:1px dashed var(--line);border-radius:var(--r-sm);padding:var(--s2);margin-top:6px}
+#measureBox[hidden]{display:none}
+summary{cursor:pointer}
+.misslist{margin:6px 0;padding:0;list-style:none;max-height:180px;overflow-y:auto}
+.misslist li{padding:3px 6px;border-radius:var(--r-sm)}
+.misslist li.link{cursor:pointer;color:var(--bad)}.misslist li.link:hover{background:var(--bg-app)}
+#startBar{width:70px}
+#pauseBox[hidden]{display:none}#rateNum{width:70px;height:32px;background:var(--bg-panel);border:1px solid var(--line);border-radius:var(--r-sm);padding:0 6px}.rate.on{border-color:var(--action);color:var(--action-text);font-weight:var(--fw-strong)}.inl{display:inline-flex;gap:4px;align-items:center}
+</style>
+
+<div class="hud"><span id="combo" class="big">콤보 0</span><span id="judgeText" class="big">시작을 눌러 주세요</span></div>
+<canvas id="game"></canvas>
+<div class="hud"><button id="startBtn" class="primary" type="button" disabled>불러오는 중…</button><button id="pauseBtn" type="button" disabled>일시정지</button><span class="help" id="help">키보드 S(왼쪽) · F(오른쪽) 또는 화면 왼쪽/오른쪽을 누르세요. 롱노트는 끝까지 누르고 있으세요.</span></div>
+<div id="pauseBox" class="card" hidden>
+  <div class="line" id="pauseText">일시정지 중입니다. 설정을 바꿀 수 있습니다. (Esc 로도 이어하기)</div>
+  <div class="set-row"><button id="resumeBtn" class="primary" type="button">이어하기</button><button id="restartBtn" type="button">처음부터 다시</button><button id="stopBtn" type="button">중지(끝내기)</button><label class="inl"><input id="stopShowResult" type="checkbox" checked> 끝낼 때 결과 보기</label></div>
+</div>
+<div id="result" class="card" hidden></div>
+<details id="settings" class="card" open>
+  <summary>테스트 설정</summary>
+  <div class="set-row">
+    <label for="latNum">입력 지연 보정(ms)</label>
+    <input id="latNum" type="number" min="-500" max="500" step="1" value="0">
+    <input id="latRange" type="range" min="-500" max="500" step="1" value="0" aria-label="입력 지연 보정 슬라이더">
+  </div>
+  <div class="help" id="latHelp">키를 늦게 누르는 느낌이면 + 값, 일찍 눌리는 느낌이면 − 값. 판정에만 적용되고 채보 파일은 바뀌지 않습니다.</div>
+  <div class="set-row"><span id="outLatency" class="help">소리 출력 지연: 확인 중…</span><button id="btnApplyEst" class="sm" type="button" hidden>추정값 적용</button></div>
+  <div class="set-row"><button id="btnMeasure" class="sm" type="button">지연 측정</button><span class="help">박자 소리에 맞춰 키를 눌러 내 환경의 지연을 재 봅니다. 유선 이어폰이나 스피커를 권장합니다. 블루투스는 지연이 큽니다.</span></div>
+  <div id="measureBox" hidden>
+    <div id="measureText" class="line"></div>
+    <div class="set-row"><button id="btnMeasureApply" class="sm primary" type="button" hidden>적용</button></div>
+  </div>
+  <div class="set-row"><label>왼쪽 키</label><span id="keyLeft" class="keycap">S</span><button id="btnKeyLeft" class="sm" type="button">키 바꾸기</button></div>
+  <div class="set-row"><label>오른쪽 키</label><span id="keyRight" class="keycap">F</span><button id="btnKeyRight" class="sm" type="button">키 바꾸기</button><button id="btnKeyReset" class="sm" type="button">기본값으로 되돌리기</button></div>
+  <div class="set-row">
+    <label for="startMode">시작 위치</label>
+    <select id="startMode"><option value="start">처음부터</option><option value="current">현재 위치부터</option><option value="selected">선택한 노트부터</option><option value="bar">마디 번호부터</option></select>
+    <input id="startBar" type="number" min="1" step="1" value="1" aria-label="시작 마디"><span class="help">마디</span>
+  </div>
+  <div class="help">"현재 위치"와 "선택한 노트"는 메인 화면 기준입니다. 시작 전에 박자 소리(카운트인)가 2~3초 납니다.</div>
+  <div class="set-row"><label for="showDiff">판정 표시</label><input id="showDiff" type="checkbox" checked><span class="help">빠름/느림과 ms 를 함께 보여 줍니다</span></div>
+  <div class="set-row">
+    <label for="volRange">음악 볼륨</label>
+    <input id="volRange" type="range" min="0" max="100" step="1" value="80" aria-label="테스트 음악 볼륨">
+    <span id="volVal">80</span><span class="help">% · 박자 소리(카운트인)·지연 측정 소리는 이 볼륨과 상관없이 같은 크기입니다. 저장됩니다.</span>
+  </div>
+  <div class="set-row">
+    <label for="leadRange">낙하 시간(ms)</label>
+    <input id="leadRange" type="range" min="500" max="2000" step="50" value="1800">
+    <span id="leadVal">1800</span>
+  </div>
+  <div class="set-row">
+    <label>재생 속도</label>
+    <span id="rateBtns"><button class="sm rate" type="button" data-rate="0.5">0.5배</button> <button class="sm rate" type="button" data-rate="0.75">0.75배</button> <button class="sm rate on" type="button" data-rate="1">1.0배</button> <button class="sm rate" type="button" data-rate="1.25">1.25배</button></span>
+    <input id="rateNum" type="number" min="0.25" max="1.5" step="0.05" value="1" aria-label="재생 속도 직접 입력"><span class="help">배 (0.25~1.5). 연습용이라 저장하지 않고 매번 1.0배로 시작합니다. 시작 전·일시정지 중에만 바꿀 수 있습니다.</span>
+  </div>
+  <div class="help">속도를 바꾸면 음악 높이(음정)도 함께 달라질 수 있습니다. 판정 폭은 실제 손 기준 시간을 그대로 씁니다.</div>
+  <div class="set-row"><label for="autoPause">자동 일시정지</label><input id="autoPause" type="checkbox" checked><span class="help">다른 창을 누르거나 탭을 바꾸면 자동으로 멈춥니다</span></div>
+  <div id="settingsMsg" role="status"></div>
+</details>

@@ -1,0 +1,5 @@
+{
+  "_설명": "프로그램 동작 설정. analysis_sample_rate: 분석에 쓰는 샘플 속도(Hz, 바꾸지 마세요). analysis_max_minutes: 이보다 긴 곡은 분석 전에 안내합니다. analyzer_idle_off_min 같은 서버 전용 항목은 뺐습니다.",
+  "analysis_sample_rate": 22050,
+  "analysis_max_minutes": 12
+}

@@ -1,0 +1,159 @@
+/* 테스트 플레이 화면 전용 스타일. 모든 선택자는 .rcw-play 안에서만 적용되어 편집기 화면과 섞이지 않는다.
+   팔레트: 크림 #fbf3e8 / 블랙 #0e090f / 차콜 #2d272b / 핫핑크 #fb4ea1 / 민트 #76f0b8 (원본과 같다)
+   스테이지는 720x1280 기준이며, 창 크기에 맞춰 비율대로 늘이고 줄인다(index.ts 가 transform 으로 맞춤). 이미지 파일은 쓰지 않는다. */
+.rcw-play {
+  --cream: #fbf3e8;
+  --black: #0e090f;
+  --charcoal: #2d272b;
+  --pink: #fb4ea1;
+  --mint: #76f0b8;
+  --muted: #b9b0b6;
+  --safe-top: 0px;
+  --safe-right: 0px;
+  --safe-bottom: 0px;
+  --safe-left: 0px;
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  overflow: hidden;
+  background: var(--black);
+  color: var(--cream);
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+.rcw-play *, .rcw-play *::before, .rcw-play *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.rcw-play button { font: inherit; color: inherit; touch-action: manipulation; }
+.rcw-play .rcw-stage { position: absolute; left: 0; top: 0; width: 720px; height: 1280px; transform-origin: 0 0; overflow: hidden; background: var(--black); }
+.rcw-play .play-screen { position: absolute; inset: 0; }
+.rcw-play .play-screen > * { position: absolute; }
+.rcw-play .rcw-loading { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; background: radial-gradient(ellipse at 40% 22%, #3a2f36 0%, var(--charcoal) 38%, var(--black) 100%); }
+
+/* 박자에 맞춘 배경 빛: 불투명도만 바뀐다 (박 시작 순간이 가장 밝다) */
+.rcw-play .bg-beat-glow { position: absolute; inset: 0; opacity: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 80%, rgba(118, 240, 184, 0.55) 0%, rgba(251, 78, 161, 0.28) 45%, rgba(14, 9, 15, 0) 80%); }
+
+/* 판정 글자 아래 "빠름/느림 ms" */
+.rcw-play .pl-judge-detail { min-height: 1.2em; font-size: 28px; font-weight: 800; text-align: center; text-shadow: 2px 2px 0 var(--black); opacity: 0; }
+.rcw-play .pl-judge-detail.pop { animation: pl-judge-pop 0.7s ease-out forwards; }
+
+/* 시작 준비·일시정지·결과 패널 안의 부품 */
+.rcw-play .pl-overlay { overflow-y: auto; overflow-x: hidden; }
+.rcw-play .pl-dialog { max-height: 1200px; }
+.rcw-play .pl-dialog-label { margin: 6px 0 -6px; font-size: 26px; font-weight: 800; color: var(--mint); align-self: flex-start; }
+.rcw-play .pl-choice-row { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; justify-content: center; }
+.rcw-play .pl-choice, .rcw-play .pl-toggle { min-height: 76px; padding: 8px 22px; font-size: 28px; font-weight: 800; border: 4px solid var(--cream); border-radius: 18px; background: var(--charcoal); color: var(--cream); cursor: pointer; }
+.rcw-play .pl-choice { flex: 1 1 140px; }
+.rcw-play .pl-choice.on, .rcw-play .pl-toggle.on { background: var(--mint); color: var(--black); border-color: var(--black); box-shadow: 4px 4px 0 var(--cream); }
+.rcw-play .pl-toggle { flex: 1 1 260px; }
+.rcw-play .pl-stepper { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 16px; font-size: 28px; font-weight: 800; }
+.rcw-play .pl-stepper-ctl { display: flex; align-items: center; gap: 12px; }
+.rcw-play .pl-stepper-value { min-width: 150px; text-align: center; font-size: 34px; color: var(--mint); }
+.rcw-play .pl-step-btn { width: 80px; height: 80px; font-size: 44px; font-weight: 900; line-height: 1; border: 4px solid var(--cream); border-radius: 18px; background: var(--charcoal); color: var(--cream); cursor: pointer; }
+.rcw-play .pl-step-btn:active { background: var(--mint); color: var(--black); }
+.rcw-play .pl-dialog.pl-start, .rcw-play .pl-dialog.pl-pause-dialog { gap: 18px; }
+.rcw-play .pl-dialog.pl-result { gap: 14px; padding-top: 28px; padding-bottom: 28px; }
+.rcw-play .pl-dialog.pl-result .pl-dialog-title { font-size: 56px; }
+.rcw-play .pl-mean { font-size: 26px; color: var(--mint); }
+.rcw-play .pl-missbox { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.rcw-play .pl-misslist { list-style: none; margin: 0; padding: 0; max-height: 270px; overflow-y: auto; touch-action: pan-y; border: 3px solid rgba(251, 243, 232, 0.35); border-radius: 14px; }
+.rcw-play .pl-misslist li + li { border-top: 2px solid rgba(251, 243, 232, 0.18); }
+.rcw-play .pl-miss { width: 100%; min-height: 64px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 20px; font-size: 26px; background: transparent; border: 0; color: var(--cream); cursor: pointer; text-align: left; }
+.rcw-play .pl-miss span { color: var(--muted); }
+.rcw-play .pl-miss b { color: #ff5a6e; }
+.rcw-play .pl-miss:hover:not(:disabled) { background: var(--charcoal); }
+.rcw-play .pl-miss:disabled { opacity: 0.5; cursor: default; }
+.rcw-play .pl-dialog .pl-buttons .btn.big { font-size: 36px; min-height: 96px; }
+.rcw-play .pl-result .pl-buttons { flex-direction: row; gap: 14px; }
+.rcw-play .pl-result .pl-buttons .btn { flex: 1 1 0; width: auto; min-width: 0; padding: 12px 12px; font-size: 32px; }
+
+/* ===== 04b: 시작 전 창·일시정지 시트·결과 화면 보정 ===== */
+/* 창이 무대보다 길어도 위쪽이 잘리지 않게: 가운데 정렬(place-items)이 넘칠 때 위가 잘리는 문제를 margin:auto 로 피한다 */
+.rcw-play .pl-overlay { display: flex; }
+.rcw-play .pl-overlay > .pl-dialog { margin: auto; }
+/* 공백 없는 긴 곡 이름이 창 밖으로 넘치지 않게 줄바꿈한다 */
+.rcw-play .pl-dialog-text, .rcw-play .pl-dialog-note, .rcw-play .pl-dialog-label, .rcw-play .pl-dialog-title { max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
+/* 버튼 글자 아래가 잘리지 않게: 편집기의 button 공통 높이(36px)·줄 높이를 물려받지 않고 글자 높이에 맞춘다 */
+.rcw-play .btn, .rcw-play .pl-choice, .rcw-play .pl-toggle { height: auto; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
+.rcw-play .pl-dialog .pl-buttons .btn.big { padding-top: 14px; padding-bottom: 14px; }
+
+/* 판정 결과 맨 위 작은 표시 */
+.rcw-play .pl-judge-note { font-size: 20px; color: var(--mint); }
+
+/* 볼륨 조절 (겹침 창) */
+.rcw-play .pl-volume { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.rcw-play .pl-vol-row { display: flex; flex-direction: column; gap: 2px; font-size: 26px; font-weight: 800; text-align: left; }
+.rcw-play .pl-vol-head { display: flex; justify-content: space-between; gap: 12px; }
+.rcw-play .pl-vol-head b { color: var(--mint); font-variant-numeric: tabular-nums; }
+.rcw-play .pl-vol-row input[type=range], .rcw-play .pl-judge-row input[type=range] { width: 100%; min-height: calc(44px / var(--stage-scale, 1)); accent-color: var(--mint); }
+.rcw-play .pl-volume input.muted { opacity: 0.4; }
+.rcw-play .pl-mute { flex: none; width: 100%; }
+
+/* 판정 설정 (접이식) */
+.rcw-play .pl-judge { width: 100%; border: 3px solid rgba(251, 243, 232, 0.35); border-radius: 18px; text-align: left; }
+.rcw-play .pl-judge-summary { cursor: pointer; display: flex; align-items: center; justify-content: space-between; min-height: calc(44px / var(--stage-scale, 1)); padding: 10px 20px; font-size: 28px; font-weight: 800; color: var(--mint); list-style: none; }
+.rcw-play .pl-judge-summary::-webkit-details-marker { display: none; }
+.rcw-play .pl-judge-summary::after { content: "▾"; }
+.rcw-play .pl-judge[open] .pl-judge-summary::after { content: "▴"; }
+.rcw-play .pl-judge-body { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 0 18px 18px; }
+.rcw-play .pl-judge-body .pl-dialog-label { margin: 4px 0 0; font-size: 24px; }
+.rcw-play .pl-judge-body .pl-dialog-note { font-size: 22px; }
+.rcw-play .pl-judge-body .pl-choice { min-height: calc(44px / var(--stage-scale, 1)); padding: 6px 12px; font-size: 24px; flex: 1 1 120px; }
+.rcw-play .pl-judge-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 150px; gap: 8px 12px; align-items: center; font-size: 24px; font-weight: 800; }
+.rcw-play .pl-judge-num { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.rcw-play .pl-judge-num input[type=number] { width: 92px; min-height: calc(44px / var(--stage-scale, 1)); font-size: 26px; font-weight: 800; text-align: right; padding: 4px 8px; color: var(--cream); background: var(--charcoal); border: 3px solid var(--cream); border-radius: 12px; -webkit-user-select: text; user-select: text; }
+.rcw-play .pl-judge-msg { grid-column: 1 / -1; min-height: 0; font-size: 22px; color: #ffb86b; font-weight: 700; }
+.rcw-play .pl-judge-msg:empty { display: none; }
+
+/* 08: 입력 보정 숫자 칸 + [싱크 맞추기], 판정 상세 구석 표시 */
+.rcw-play .pl-sync-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; font-size: 26px; font-weight: 800; }
+.rcw-play .pl-sync-label { color: var(--mint); }
+.rcw-play .pl-sync-num { display: flex; align-items: center; gap: 6px; }
+.rcw-play .pl-sync-input { width: 110px; min-height: calc(44px / var(--stage-scale, 1)); font-size: 28px; font-weight: 800; text-align: right; padding: 4px 8px; color: var(--cream); background: var(--charcoal, #2a2a3a); border: 3px solid var(--mint); border-radius: 10px; }
+.rcw-play .pl-sync-row .pl-choice { flex: 0 1 auto; min-height: calc(44px / var(--stage-scale, 1)); padding: 6px 16px; font-size: 26px; }
+.rcw-play .pl-sync-status { font-size: 40px; text-align: center; color: var(--mint); }
+.rcw-play .pl-sync-info { position: absolute; left: 10px; bottom: 10px; max-width: 92%; font-size: 18px; font-weight: 700; color: var(--cream); opacity: 0.8; pointer-events: none; text-shadow: 1px 1px 0 var(--black); z-index: 5; }
+.rcw-play .pl-sync-info:empty { display: none; }
+
+/* 볼륨 줄을 한 줄씩으로 줄여 시작 창·일시정지 시트가 무대 높이 안에 들어가게 한다 */
+.rcw-play .pl-vol-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rcw-play .pl-vol-title { font-size: 26px; font-weight: 800; color: var(--mint); text-align: left; }
+.rcw-play .pl-vol-top .pl-mute { flex: none; width: auto; min-height: calc(44px / var(--stage-scale, 1)); padding: 4px 16px; font-size: 24px; border-width: 3px; }
+.rcw-play .pl-vol-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 56px; align-items: center; gap: 10px; }
+.rcw-play .pl-vol-head { display: contents; }
+.rcw-play .pl-vol-head span { grid-column: 1; grid-row: 1; }
+.rcw-play .pl-vol-head b { grid-column: 3; grid-row: 1; text-align: right; }
+.rcw-play .pl-vol-row input[type=range] { grid-column: 2; grid-row: 1; }
+.rcw-play .pl-dialog.pl-start, .rcw-play .pl-dialog.pl-pause-dialog { gap: 12px; padding: 24px 28px 24px; }
+.rcw-play .pl-dialog.pl-pause-dialog .pl-dialog-title, .rcw-play .pl-dialog.pl-start .pl-dialog-title { font-size: 52px; }
+.rcw-play .pl-dialog.pl-start .pl-dialog-note, .rcw-play .pl-dialog.pl-pause-dialog > .pl-dialog-note { font-size: 20px; }
+.rcw-play .pl-dialog.pl-pause-dialog .pl-buttons .btn.big, .rcw-play .pl-dialog.pl-start .pl-buttons .btn.big { min-height: 84px; font-size: 32px; }
+.rcw-play .pl-dialog.pl-pause-dialog .pl-buttons, .rcw-play .pl-dialog.pl-start .pl-buttons { gap: 12px; margin-top: 4px; }
+.rcw-play .pl-dialog.pl-pause-dialog .pl-choice-row .pl-toggle { min-height: 64px; font-size: 24px; }
+.rcw-play .pl-dialog { max-height: none; }
+.rcw-play .pl-judge-body .pl-choice { white-space: nowrap; padding: 6px 6px; font-size: 22px; flex: 1 1 100px; }
+
+/* ===== [11] 새 플레이 화면 10-C =====
+   2D canvas 가 배경·레일·노트·점수·콤보·게이지를 모두 그린다. 기존 HTML 패널은 숨기고, 시작·일시정지·결과 창과 카운트다운은 그대로 쓴다.
+   PC 에서는 창 전체가 불투명한 어두운 색이라 세로 화면 양옆이 비치지 않는다. */
+.rcw-play.v10c { background: #0a070b; }
+.rcw-play .play-screen.v10c .bg,
+.rcw-play .play-screen.v10c .pl-score,
+.rcw-play .play-screen.v10c .pl-fever,
+.rcw-play .play-screen.v10c .pl-neg,
+.rcw-play .play-screen.v10c .pl-info,
+.rcw-play .play-screen.v10c .pl-progress,
+.rcw-play .play-screen.v10c .pl-judge-block,
+.rcw-play .play-screen.v10c .pl-keyguide,
+.rcw-play .play-screen.v10c .pl-burst-label,
+.rcw-play .play-screen.v10c .pl-tapzones { display: none !important; }
+.rcw-play .play-screen.v10c .pl-judge-block { display: block !important; visibility: hidden; }
+.rcw-play .pl-canvas10c[hidden] { display: none; }
+/* 일시정지 버튼: 참고 화면(100px)보다 30% 작게(70px), 같은 왼쪽 위 자리 */
+.rcw-play .play-screen.v10c .pl-pause { left: 24px; top: 44px; width: 70px; height: 70px; border-width: 3px; border-radius: 15px; background: #120c14; border-color: #fff6ee; }
+.rcw-play .play-screen.v10c .pl-pause svg { width: 28px; height: 28px; }
+/* PC 양옆 덮개: 무대 바깥은 불투명한 어두운 색 + 무대 가장자리의 가는 선 */
+.rcw-play .pl-side-cover { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg, #0e0a10, #0a070b); z-index: 0; pointer-events: none; display: none; }
+.rcw-play.v10c .pl-side-cover { display: block; }

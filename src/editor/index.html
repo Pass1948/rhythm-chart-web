@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>리듬 채보 만들기</title>
+<!-- 스타일(tokens.css, style.css)과 스크립트(js/main.js)는 app/main.ts 가 불러온다. 이 파일은 화면 조각(body 안쪽)만 쓴다. -->
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo" aria-hidden="true">♬</span> <b>노트 디자인</b> <span class="tag">2 KEY</span></div>
+  <div class="songinfo"><div id="songName" class="songname" title="">곡을 열어 주세요</div><div id="songMeta" class="songmeta"></div></div>
+  <span class="sp"></span>
+  <div class="actions">
+    <button id="btnOpen" type="button" class="ghost" data-short="올리기" title="음원 파일을 골라 곡을 올립니다. 파일은 이 기기 안에서만 처리됩니다">곡 올리기</button>
+    <button id="btnSave" type="button" class="ghost" title="Ctrl+S (이 기기의 브라우저 안에 저장됩니다)">저장 <kbd>Ctrl S</kbd></button>
+    <button id="btnTest" type="button" class="ghost" data-short="테스트" title="지금 채보를 직접 쳐 보며 판정을 확인합니다"><span class="ico">▷</span><span class="txt"> 테스트</span></button>
+    <button id="btnPlayTest" type="button" class="ghost" data-short="플레이" title="만든 채보를 게임 화면에서 쳐 봅니다"><span class="ico">🎮</span><span class="txt"> 게임 화면 테스트</span></button>
+    <button id="btnExport" type="button" class="primary" data-short="내보내기">내보내기 ↗</button>
+    <div class="menuwrap">
+      <button id="btnMore" type="button" class="ghost" aria-haspopup="menu" aria-expanded="false" title="더보기">⋯</button>
+      <div id="moreMenu" class="menu" role="menu" hidden>
+        <button type="button" role="menuitem" class="proxy" data-proxy="btnOpen" disabled>곡 올리기</button>
+        <button type="button" role="menuitem" class="proxy" data-proxy="btnTest" disabled>테스트 (판정 확인)</button>
+        <button type="button" role="menuitem" class="proxy" data-proxy="btnPlayTest" disabled>게임 화면 테스트</button>
+        <button type="button" role="menuitem" class="proxy" data-proxy="btnExport" disabled>내보내기</button>
+        <button id="btnLoadJson" type="button" role="menuitem" title="채보 JSON 이나 [채보 JSON + 음원] ZIP 을 불러옵니다">불러오기 (JSON · ZIP)</button>
+        <button id="btnTestHere" type="button" role="menuitem" title="선택한 노트부터(선택이 없으면 지금 재생 위치부터) 테스트합니다">여기서부터 테스트</button>
+        <hr>
+        <div class="menulabel" id="themeLabel">화면 모드</div>
+        <button id="themeLight" type="button" role="menuitemradio" aria-checked="true" data-mode="light"><span class="mk">✓</span>화이트</button>
+        <button id="themeDark" type="button" role="menuitemradio" aria-checked="false" data-mode="dark"><span class="mk">✓</span>다크</button>
+        <button id="themeSystem" type="button" role="menuitemradio" aria-checked="false" data-mode="system"><span class="mk">✓</span>컴퓨터 설정 따름</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div id="storageNote" class="hint" role="status" hidden></div>
+
+<!-- 맨 위 가로 줄: 곡 등록(끌어다 놓기·클릭). 폰·태블릿에서는 [곡] 탭에서만 보인다 -->
+<div class="dropbar" id="dropBar" data-tab="song">
+  <div id="dropZone" class="drop" title="음원 파일을 끌어다 놓거나 클릭해서 고릅니다. 파일은 이 기기 안에서만 처리됩니다">음원 파일을 끌어다 놓거나 클릭하세요<small>mp3 · wav · m4a · ogg · flac</small></div>
+  <input id="fileInput" type="file" accept=".mp3,.wav,.m4a,.ogg,.flac,audio/*" hidden>
+  <span id="songBusy" class="busychip" hidden><i class="spin"></i>분석 중</span>
+</div>
+
+<main class="cols" id="cols">
+  <!-- ===== 왼쪽 열(따로 스크롤): 위 곡 정보·최근 곡·검사 / 아래 분석 (00 공통규칙 6절) ===== -->
+  <aside class="col left" id="paneLeft">
+    <section class="card cardsong" data-tab="song" id="cardSong">
+      <div class="cardhead"><div class="lbl">곡 정보</div></div>
+      <div id="welcome" class="summary welcome" hidden>
+        <b>처음 오셨나요?</b>
+        <p>음원 파일을 올려 시작하세요. 파일은 이 기기 안에서만 처리되고 어디로도 전송되지 않습니다.</p>
+        <div class="row"><button id="btnWelcomeUpload" type="button" class="primary">곡 올리기</button><button id="btnDemo" type="button">체험용 데모 곡으로 시작</button></div>
+        <small class="help">파일이 없어도 괜찮습니다. 데모 곡(코드로 만든 30초 드럼 비트)으로 분석부터 편집까지 체험해 볼 수 있습니다.</small>
+      </div>
+      <div id="songSummary" class="summary">열려 있는 곡이 없습니다.</div>
+      <div class="infoform" id="songInfoForm">
+        <label class="lbl sub" for="songTitleInput">곡 제목</label>
+        <input id="songTitleInput" class="textin" type="text" autocomplete="off" disabled placeholder="곡을 열면 고칠 수 있습니다">
+        <label class="lbl sub" for="songArtistInput">아티스트</label>
+        <input id="songArtistInput" class="textin" type="text" autocomplete="off" disabled placeholder="비워 두어도 됩니다">
+        <small class="help">제목·아티스트는 100자까지 쓸 수 있고 Enter를 누르거나 칸 밖을 누르면 저장됩니다. 제목을 비우면 음원 파일 이름으로 돌아갑니다. 아티스트는 이 프로그램의 저장본과 채보 파일에만 기록되고 유니티 곡 표(SongTable)에는 들어가지 않습니다. 이미 유니티로 보낸 곡의 이름은 자동으로 바뀌지 않으니 유니티 표에서 직접 고쳐 주세요.</small>
+      </div>
+      <div class="lbl sub recenthead"><span>최근 작업한 곡</span><button id="btnRecentClear" type="button" class="ghost sm recentclear" hidden>모두 지우기…</button></div>
+      <ul id="songList" class="songlist"></ul>
+    </section>
+
+    <section class="card cardinspect" data-tab="inspect" id="rightCol">
+      <div class="cardhead"><div class="lbl">검사</div><span id="inspectBadge" class="ibadge ok" role="status">오류 0 · 경고 0</span><span class="sp"></span><button id="btnRightToggle" type="button" class="ghost sm" aria-expanded="true" title="검사 내용 접기/펴기">접기 ▴</button></div>
+      <div class="rightbody" id="rightBody">
+    <div class="sub selected" id="selectedPanel">
+      <div class="lbl sub">선택한 노트</div>
+      <div id="selectedBody" class="help">노트를 클릭해 선택하세요. (한 번에 하나만 선택됩니다)</div>
+    </div>
+    <div class="sub health" id="health">
+      <div class="lbl sub">채보 건강검진 <span id="healthLight" class="light ok">이상 없음</span></div>
+      <div id="healthBody">채보가 없습니다.</div>
+      <ul id="issueList" class="issues"></ul>
+    </div>
+      </div>
+    </section>
+
+    <section class="card cardana lowcard" data-tab="analyze" id="cardAnalyze">
+      <div class="lbl">분석</div>
+      <div class="cardbody">
+      <div id="presetCards" class="presets"></div>
+      <label class="field">분석 방식 (소리가 시작되는 지점을 찾는 방법)
+        <select id="detector"></select>
+      </label>
+      <p id="detectorHelp" class="help"></p>
+      <label class="field">지점 민감도 (소리 시작 지점을 얼마나 많이 잡을까요)
+        <div class="slider"><span>적게</span><input id="sensitivity" type="range" min="10" max="100" step="5" value="60"><span>많게</span><output id="sensitivityVal">60%</output></div>
+        <small class="help">분석 단계 설정입니다. 곡에서 소리가 시작되는 곳을 몇 군데 찾을지만 정하며, 노트는 아직 만들지 않습니다.</small>
+      </label>
+      <div class="field">BPM (1분에 박이 몇 번인지)
+        <div class="row">
+          <input id="bpmInput" class="num" type="number" min="40" max="300" step="0.01" value="120">
+          <button id="bpmHalf" type="button" class="sm">÷2</button>
+          <button id="bpmDouble" type="button" class="sm">×2</button>
+        </div>
+        <div id="bpmCandidates" class="row wrap"></div>
+        <small id="bpmNote" class="help"></small>
+      </div>
+      <label class="field">시작점 (첫 박의 위치, ms)
+        <div class="row">
+          <input id="offsetInput" class="num" type="number" step="1" value="0">
+          <button type="button" class="sm nudge" data-delta="-10">-10</button><button type="button" class="sm nudge" data-delta="-1">-1</button><button type="button" class="sm nudge" data-delta="1">+1</button><button type="button" class="sm nudge" data-delta="10">+10</button>
+        </div>
+        <small class="help">메트로놈을 켜고 들으면서 눌러 보세요. 메트로놈 소리가 음악의 박보다 먼저 들리면 +, 늦게 들리면 - 를 누르세요.</small>
+      </label>
+      <label class="field">BPM·시작점을 바꿀 때 기존 노트는
+        <select id="retimeMode">
+          <option value="time">소리 위치 유지 (추천)</option>
+          <option value="tick">박자 위치 유지</option>
+        </select>
+      </label>
+      </div>
+      <div class="cardfoot">
+      <div id="analyzeError" class="errbox" role="alert" hidden><span class="eicon" aria-hidden="true">⚠</span><div><b id="analyzeErrorText"></b><div>다시 [분석]을 눌러 보세요.</div></div></div>
+      <p id="analyzeHint" class="hint" hidden></p>
+      <div class="row actionline">
+        <button id="btnAnalyze" type="button" class="primary">분석</button>
+        <button id="btnCancel" type="button" hidden>취소</button>
+        <span id="analyzeBadge" class="pbadge" role="status" hidden><i class="spin"></i><span id="analyzeBadgeText"></span></span>
+      </div>
+      <div id="progressWrap" class="progress" hidden><div id="progressBar"></div></div>
+      <ul id="analyzeWarn" class="help warnlist" hidden></ul>
+      <p id="analyzeMsg" class="help">곡을 연 뒤 [분석]을 누르면 박자와 소리가 시작되는 지점을 찾습니다. 노트는 만들지 않습니다.</p>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ===== 가운데 열(따로 스크롤): 음원 → 변속 구간 → 노트 생성, 카드마다 열 폭 전체 ===== -->
+  <section class="col mid" id="paneMid">
+    <section class="card cardaudio" data-tab="analyze" id="cardAudio">
+      <div class="audiohead"><div class="lbl">음원</div><span id="audioTitle" class="audiosub">곡을 열어 주세요</span><span class="sp"></span>
+        <label class="chk"><input id="hitSound" type="checkbox" checked> 히트사운드</label>
+        <label class="chk" title="박자에 맞춰 딱딱 소리가 납니다. 음악과 어긋나면 BPM이나 시작점이 맞지 않는 것입니다. (단축키 M)"><input id="metro" type="checkbox" disabled> 메트로놈</label>
+        <details class="soundmore">
+          <summary title="박자 소리의 볼륨·간격과 소리 시작 지점 소리">소리 설정</summary>
+        <div class="soundpop">
+          <label class="vol" title="메트로놈 볼륨">박자 볼륨 <input id="metroVolume" type="range" min="0" max="100" value="60"></label>
+          <select id="metroUnit" title="박자 소리를 내는 간격"><option value="beat">박</option><option value="half">반 박</option><option value="grid">지금 격자</option></select>
+          <label class="chk" title="분석으로 찾은 소리 시작 지점마다 짧은 소리가 납니다. 음악 소리와 맞는지 들어 보세요."><input id="onsetSound" type="checkbox" disabled> 소리 시작 지점 소리</label>
+        </div>
+      </details>
+      </div>
+      <div class="tlhead"><small>눈금자·파형 클릭 = 재생 위치 이동 · 노트 줄은 편집 · 휠로 이동</small>
+        <span class="legend"><i class="d tap"></i>단타 <i class="d hold"></i>롱노트 <i class="d burst"></i>연타 <i class="d cand"></i>소리 시작 지점</span>
+        <label class="zoom">확대 <input id="tlZoom" type="range" min="4" max="90" step="1" value="20"> <output id="tlZoomVal">20초</output></label>
+      </div>
+      <!-- 09: 노트 줄 편집 도구 (오른쪽 채보 편집의 도구와 같은 S.tool 을 같이 쓴다. 폭 1024px 미만에서는 숨김) -->
+      <div class="tltools" id="tlTools" role="group" aria-label="음원 카드 노트 줄 편집 도구"><span class="seglbl">노트 줄 편집</span><span class="seg"><button data-tool="select" class="tool active" type="button">선택</button><button data-tool="tap" class="tool" type="button">단타</button><button data-tool="hold" class="tool" type="button">롱노트</button></span></div>
+      <canvas id="timeline"></canvas>
+
+      <div class="transport" id="transport">
+      <button id="btnPlay" type="button" class="play" title="Space">▶</button>
+      <span class="rates" title="재생 속도 (단축키: [ 느리게 / ] 빠르게). 저장하지 않고 열 때마다 1.0배입니다.">속도
+        <span class="seg"><button class="sm mrate" type="button" data-rate="0.5">0.5</button><button class="sm mrate" type="button" data-rate="0.75">0.75</button><button class="sm mrate on" type="button" data-rate="1">1.0</button><button class="sm mrate" type="button" data-rate="1.25">1.25</button></span>
+        <b id="rateLabel" class="ratelabel" hidden>0.5배</b><button id="btnRate1" class="sm" type="button" hidden>원래 속도(1.0배)</button>
+      </span>
+      <span id="timeLabel" class="time">0:00.0 / 0:00.0</span>
+      <input id="seek" type="range" min="0" max="1000" value="0" step="1">
+      <label class="vol">볼륨 <input id="volume" type="range" min="0" max="100" value="80"></label>
+      </div>
+    </section>
+    <section class="card cardtempo lowcard" data-tab="analyze" id="cardTempo">
+      <div class="cardhead"><div class="lbl">변속 구간</div><small id="tempoCount" class="help"></small></div>
+      <div class="cardbody">
+      <p class="help">곡 중간에 BPM이 바뀌면 여기서 구간을 나눕니다. 구간이 없으면 곡 전체가 한 BPM입니다.</p>
+      <div id="tempoList" class="tempolist" aria-label="변속 구간 목록"></div>
+      <div class="row wrap">
+        <button id="btnTempoAdd" type="button" class="sm" title="재생 위치(없으면 선택한 노트 위치)에서 가장 가까운 박에 새 구간을 만듭니다">구간 추가</button>
+        <label class="chk"><input id="tempoSnapBar" type="checkbox" checked> 마디에 맞춤</label>
+        <button id="btnTempoReset" type="button" class="sm" disabled>전체를 한 BPM으로 되돌리기</button>
+      </div>
+      <label class="chk tempokeep"><input id="tempoKeepAfter" type="checkbox" checked> BPM을 고칠 때 뒤 구간은 소리 위치 유지</label>
+      <small class="help">BPM을 고치면 그 구간 이후 시간이 모두 바뀝니다. 위 칸을 켜면 뒤 구간의 시작을 소리 위치에 가장 가까운 박으로 옮깁니다. 노트는 위 [BPM·시작점을 바꿀 때 기존 노트는] 설정을 따릅니다.</small>
+      <div class="tempofind">
+        <div class="row wrap">
+          <select id="tempoSens" aria-label="변속 찾기 민감도"><option value="strict">엄격 5%</option><option value="normal" selected>보통 3%</option><option value="sensitive">민감 2%</option></select>
+          <button id="btnTempoFind" type="button" class="sm" disabled>변속 자동 찾기</button>
+        </div>
+        <div id="tempoFound" class="tempofound" hidden></div>
+        <p id="tempoMsg" class="help" role="status"></p>
+      </div>
+      </div>
+    </section>
+    <section class="card cardgen lowcard" data-tab="analyze" id="cardGen">
+      <div class="lbl">노트 생성</div>
+      <div class="cardbody">
+      <label class="field">디자인 모드
+        <select id="designMode">
+          <option value="classic" selected>기존 방식 (설정한 비율·패턴 그대로)</option>
+          <option value="reference">레퍼런스 규칙 (실제 채보 분석 기준 자동 적용)</option>
+          <option value="unified">통합 규칙 (히트러스 규칙 + 레퍼런스 보정)</option>
+        </select>
+        <small class="help" id="designModeHelp">기존 방식: 아래 설정을 그대로 사용합니다.</small>
+      </label>
+      <div class="field unified-only" id="unifiedBox" hidden>
+        <small class="help">통합 규칙 설정 — 비워 두면 곡 전체, 난이도 기본 밀도를 씁니다. 노트는 구간 시작 2초 뒤부터 끝 1초 전까지만 놓입니다.</small>
+        <div class="row"><label>구간 시작(초) <input id="rangeStart" class="num small" type="number" min="0" step="0.1" placeholder="0"></label>
+        <label>구간 끝(초) <input id="rangeEnd" class="num small" type="number" min="0" step="0.1" placeholder="곡 끝"></label></div>
+        <label>목표 초당 노트 수 <input id="targetNps" class="num small" type="number" min="0.3" max="8" step="0.1" placeholder="난이도 기본"></label>
+        <label hidden style="display:none"><input id="allowBurst" type="checkbox" disabled> 연타 넣기 (2.2부터 연타는 만들지 않습니다)</label>
+      </div>
+      <label class="field">난이도
+        <select id="difficulty"><option value="EASY">쉬움</option><option value="NORMAL" selected>보통</option><option value="HARD">어려움</option></select>
+      </label>
+      <label class="field">노트 박자 단위 (격자)
+        <select id="gridSelect">
+          <option value="4">4분음표 (한 박에 1개)</option><option value="8">8분음표 (한 박에 2개)</option>
+          <option value="12">8분 셋잇단 (한 박에 3개)</option><option value="16" selected>16분음표 (한 박에 4개)</option>
+          <option value="24">16분 셋잇단 (한 박에 6개)</option><option value="32">32분음표 (한 박에 8개)</option>
+          <option value="free">격자 없음</option>
+        </select>
+      </label>
+      <label class="field">노트 양 (곡에 노트를 얼마나 많이 만들까요) <small class="ruletag" id="tagDensity" hidden>규칙 기본값</small>
+        <div class="slider"><span>적게</span><input id="density" type="range" min="10" max="100" step="5" value="55"><span>많게</span><output id="densityVal">55%</output></div>
+        <small class="help">노트 자동 생성 단계 설정입니다. 찾아 둔 지점 중 실제 노트로 만들 개수를 정합니다.</small>
+      </label>
+      <label class="field">키 모드
+        <select id="keyModeSelect">
+          <option value="2" selected>2키 (왼쪽·오른쪽)</option>
+          <option value="4">4키 (S D K L)</option>
+        </select>
+        <small class="help" id="keyModeHelp">노트가 하나도 없을 때 바꾸면 바로 적용됩니다. 노트가 있는 채보는 [노트 자동 생성]으로 다시 만들어야 키 모드가 바뀝니다. 4키는 소리 높낮이와 상관없이 레인을 나누고, 같은 위치에는 노트를 최대 2개까지 둡니다.</small>
+      </label>
+      <div class="field" id="fourKeyBox" hidden>
+        <label>4키 노트 양 배율 <input id="fkDensity" class="num small" type="number" min="1.0" max="1.6" step="0.05" value="1.25" aria-label="4키 노트 양 배율"> 배</label>
+        <label>동시 노트 비율 <input id="fkSim" class="num small" type="number" min="0" max="30" step="1" value="5" aria-label="동시 노트 비율"> %</label>
+        <small class="help">4키(양손 엄지) 전용입니다. 노트 양 배율은 2키보다 노트를 얼마나 더 만들지(1.0~1.6), 동시 노트 비율은 양손에 하나씩 동시에 나오는 노트의 양(0~30%)입니다. 난이도를 바꾸면 그 난이도의 값으로 다시 채워지고, 바꾼 값은 이 기기에 저장됩니다.</small>
+      </div>
+      <label class="field classic-only" id="laneModeField">좌·우 버튼 패턴
+        <select id="laneMode"></select>
+        <small class="help" id="laneModeWhy" hidden></small>
+      </label>
+      <label class="field">박자 맞춤 정도
+        <select id="gridTolerance">
+          <option value="strict" selected>엄격 (기본)</option>
+          <option value="normal">보통</option>
+          <option value="loose">느슨</option>
+        </select>
+        <small class="help">느슨하게 하면 노트가 늘어나지만, 소리와 노트가 조금 어긋날 수 있습니다.</small>
+      </label>
+      <div class="field">노트 종류 비율 (합계 100%) <small class="ruletag" id="tagRatios" hidden>규칙 기본값</small>
+        <small class="help">곡에 만들 노트 중 롱노트의 비중입니다. 롱노트는 입력한 값 그대로 쓰고(슬라이더 1% 단위, 숫자는 소수 첫째 자리까지 입력 후 Enter), 단타는 나머지(100 − 롱노트)로 자동 계산됩니다. 연타노트는 더 이상 만들지 않습니다.</small>
+        <div class="ratio"><span class="chip tap">단타</span><input id="ratioTap" type="range" min="0" max="100" step="1" value="70" disabled aria-label="단타 비율 (자동)"><input id="ratioTapNum" class="num small" type="number" readonly tabindex="-1" min="0" max="100" step="0.1" value="70" aria-label="tap 비율 직접 입력">%<output id="ratioTapVal">적용 70%</output><small class="auto">자동</small></div>
+        <div class="ratio"><span class="chip hold">롱노트</span><input id="ratioHold" type="range" min="0" max="100" step="1" value="20"><input id="ratioHoldNum" class="num small" type="number" min="0" max="100" step="0.1" value="20" aria-label="hold 비율 직접 입력">%<output id="ratioHoldVal">적용 20%</output></div>
+        <div class="ratio" hidden style="display:none"><span class="chip burst">연타</span><input id="ratioBurst" type="range" min="0" max="100" step="1" value="10"><input id="ratioBurstNum" class="num small" type="number" min="0" max="100" step="0.1" value="10" aria-label="burst 비율 직접 입력">%<output id="ratioBurstVal">적용 10%</output></div>
+        <small class="help" id="ratioMsg" role="status"></small>
+      </div>
+      <label class="field">롱노트 기본 길이 (박) <small class="ruletag" id="tagHold" hidden>규칙 기본값</small>
+        <input id="holdBeats" class="num" type="number" min="0.25" max="16" step="0.25" value="1">
+      </label>
+      <div class="field" hidden style="display:none">연타 기본 횟수 (3~100) <small class="ruletag" id="tagBurst" hidden>규칙 기본값</small>
+        <small class="help">한 번에 연타할 횟수입니다. 연타 길이는 노트가 몰린 정도에 맞춰 정해집니다 (예: 1박에 노트 4개 → 8회는 2박).</small>
+        <div class="slider"><input id="burstRange" type="range" min="3" max="100" step="1" value="8"><input id="burstNum" class="num small" type="number" min="3" max="100" step="1" value="8"></div>
+      </div>
+      <div class="field">
+        <div class="row"><button id="btnGenReset" type="button" class="sm">규칙 기본값으로 되돌리기</button><small class="help" id="genResetMsg" role="status"></small></div>
+        <details id="advRules">
+          <summary>고급 규칙</summary>
+          <div id="advRulesBody"></div>
+        </details>
+      </div>
+      </div>
+      <div class="cardfoot">
+      <p id="genHint" class="hint" hidden></p>
+      <div class="row actionline">
+        <button id="btnGenerate" type="button" class="primary">노트 자동 생성</button>
+        <button id="btnClear" type="button">초기화</button>
+        <span id="genBadge" class="pbadge" role="status" hidden><i class="spin"></i><span id="genBadgeText"></span></span>
+      </div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ===== 오른쪽 열: 채보 편집(고정) ===== -->
+  <aside class="col right" id="paneRight">
+    <section class="card cardedit" data-tab="edit" id="cardEdit">
+      <div class="cardhead">
+        <div><div class="lbl">채보 편집</div><div class="ctitle" id="noteCount">0개 노트</div></div>
+        <div class="helpwrap"><button id="btnEditHelp" type="button" class="ghost sm" aria-expanded="false" aria-controls="editHelp">편집 도움말</button>
+          <div id="editHelp" class="popover" role="dialog" aria-label="편집 도움말" hidden><div class="helplist" id="toolHelp"></div></div></div>
+      </div>
+      <div class="toolrow">
+        <div class="toprow">
+          <div class="edhead">
+            <select id="diffSelect" hidden title="편집할 난이도"></select>
+            <button id="btnUndo" type="button" class="sm" title="Ctrl+Z">되돌리기</button>
+            <button id="btnRedo" type="button" class="sm" title="Ctrl+Y">다시하기</button>
+          </div>
+          <span class="sp"></span>
+          <div class="navbtns"><button id="btnPrev" type="button" class="sm">이전 구간</button><button id="btnNext" type="button" class="sm">다음 구간</button></div>
+        </div>
+        <div class="tools" id="tools">
+          <span class="seg wide" role="group" aria-label="편집 도구">
+            <button data-tool="select" class="tool active" type="button">선택</button>
+            <button data-tool="tap" class="tool" type="button">단타</button>
+            <button data-tool="hold" class="tool" type="button">롱노트</button>
+          </span>
+        </div>
+      </div>
+      <div class="viewopts" role="group" aria-label="보기 설정">
+        <button id="btnWave" type="button" class="sm toggle" aria-pressed="false" title="음원의 파형을 오른쪽 띠로 봅니다 (폭 = 소리 크기, 색 = 저음 주황 · 중음 초록 · 고음 하늘)">파형</button>
+        <span class="seg shapeseg" role="group" aria-label="노트 모양">
+          <span class="seglbl">노트 모양</span>
+          <button data-shape="circle" class="shape active" type="button" aria-pressed="true">동그라미</button>
+          <button data-shape="bar" class="shape" type="button" aria-pressed="false">바</button>
+        </span>
+      </div>
+      <div class="vwrap"><canvas id="vertical"></canvas></div>
+      <div id="selBar" class="selbar" role="toolbar" aria-label="선택한 노트 편집" hidden></div>
+    </section>
+  </aside>
+  <!-- 08: 가운데 열과 오른쪽 채보 편집 사이 손잡이(PC 폭 1024px 이상만 보임). 끌어서 폭 조절, 더블클릭: 기본 폭 -->
+  <div id="editResizer" class="resizer" role="separator" aria-orientation="vertical" aria-label="채보 편집 폭 조절" tabindex="0" title="끌어서 채보 편집 폭 조절 · 더블클릭: 기본 폭"></div>
+</main>
+
+<nav id="tabBar" class="tabbar" aria-label="화면 이동"><button type="button" data-tab="song"><i aria-hidden="true">♪</i><span>곡</span></button><button type="button" data-tab="analyze"><i aria-hidden="true">≋</i><span>분석</span></button><button type="button" data-tab="edit"><i aria-hidden="true">✎</i><span>편집</span></button><button type="button" data-tab="inspect"><i aria-hidden="true">✓</i><span>검사</span></button><button type="button" data-tab="play"><i aria-hidden="true">▶</i><span>플레이</span></button></nav>
+
+<footer class="statusbar"><div id="statusLine" class="status" role="status" aria-live="polite">[곡 올리기]를 누르거나 맨 위 줄에 음원 파일을 끌어다 놓으세요.</div><span id="appVersion" class="appver">웹 버전</span></footer>
+
+<dialog id="dlgBurst">
+  <form method="dialog" id="burstForm" novalidate>
+    <h3>연타 횟수</h3>
+    <p class="help" id="burstInfo"></p>
+    <div class="slider"><input id="dlgBurstRange" type="range" min="3" max="100" step="1" value="8"><input id="dlgBurstNum" class="num small" type="number" min="3" max="100" value="8"></div>
+    <p id="burstRate" class="help"></p>
+    <div class="row"><button value="ok" class="primary" id="burstOk">확인</button><button value="cancel" id="burstCancel" formnovalidate>취소</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgExport">
+  <form method="dialog" id="exportForm" novalidate>
+    <h3>내보내기</h3>
+    <div class="lbl">내보낼 것</div>
+    <label class="opt"><input type="radio" name="what" value="chart" checked> 채보 JSON</label>
+    <label class="opt"><input type="radio" name="what" value="audio"> 음원 (원본 파일을 ZIP 에 담아 저장)</label>
+    <label class="opt"><input type="radio" name="what" value="both"> 채보 JSON + 음원 (ZIP 하나)</label>
+    <label class="opt"><input type="radio" name="what" value="unity" id="exportUnityRadio"> 유니티 묶음 (4키)</label>
+    <p class="help" id="exportUnityWhy" hidden>4키 채보만 보낼 수 있습니다.</p>
+    <div id="unityLinkBox" hidden>
+      <div class="lbl sub">유니티 폴더 연결</div>
+      <p class="help"><b id="unityLinkState">연결 안 됨</b></p>
+      <div class="row"><button type="button" id="btnUnityLink">유니티 폴더 연결</button><button type="button" id="btnUnityUnlink" hidden>연결 해제</button></div>
+      <div class="row"><button type="button" class="primary" id="btnUnitySend" disabled>유니티로 보내기</button><button type="button" id="btnUnityZip">ZIP으로 저장</button></div>
+      <p class="help" id="unitySendWhy"></p>
+      <p class="help" id="unityLinkMsg" role="status"></p>
+    </div>
+    <div id="exportChartOpts">
+      <div class="lbl sub">파일 종류</div>
+      <label class="opt"><input type="radio" name="kind" value="unity" checked> Unity용 (시간이 ms 로 계산된 단순한 파일)</label>
+      <label class="opt"><input type="radio" name="kind" value="edit"> 편집용 (이 프로그램에서 다시 열 수 있는 전체 파일)</label>
+      <div class="lbl sub">옵션</div>
+      <label class="opt"><input type="checkbox" id="exportSplit"> Unity용은 난이도마다 따로 만들기 (여러 개면 ZIP 하나로 묶음)</label>
+    </div>
+    <p class="help" id="exportHelp">오류가 있는 채보는 Unity용으로 내보낼 수 없습니다. 다음 창에서 파일 이름을 확인하고 저장합니다.</p>
+    <div class="dlgfoot"><button value="cancel" formnovalidate>취소</button><button value="ok" class="primary" id="exportOk">내보내기</button></div>
+  </form>
+</dialog>
+<dialog id="dlgSave" aria-labelledby="saveTitle">
+  <form method="dialog" id="saveForm" novalidate>
+    <h3 id="saveTitle">파일 저장</h3>
+    <p class="help" id="saveQuestion"></p>
+    <label class="field">파일 이름 (다른 이름으로 저장)
+      <input id="saveName" type="text" class="fname" maxlength="200" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="savemeta"><span>종류</span><b id="saveKind"></b><span>용량</span><b id="saveSize"></b></div>
+    <p class="help" id="saveNote"></p>
+    <div class="dlgfoot"><button value="cancel" id="saveCancel" formnovalidate>취소</button><button value="ok" class="primary" id="saveOk">저장</button></div>
+  </form>
+</dialog>
+<dialog id="deleteSongDialog" aria-labelledby="deleteSongTitle">
+  <form method="dialog" id="deleteSongForm" novalidate>
+    <h3 id="deleteSongTitle">작업을 지울까요?</h3>
+    <p class="help" id="deleteSongMsg"></p>
+    <p class="help" id="deleteSongExtra" hidden></p>
+    <div class="dlgfoot"><button value="cancel" id="deleteSongCancel" formnovalidate autofocus>취소</button><button value="ok" class="dangerfill" id="deleteSongOk">지우기</button></div>
+  </form>
+</dialog>
+<input id="jsonInput" type="file" accept=".json,.zip,application/json,application/zip,application/x-zip-compressed" hidden>
+<div id="toast" class="toast" role="status"></div>
+<div id="undoBar" class="toast undobar" role="status"><span id="undoMsg"></span><button id="btnUndoDelete" type="button" class="sm">되돌리기</button></div>
+</body>
+</html>

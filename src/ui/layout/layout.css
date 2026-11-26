@@ -1,0 +1,158 @@
+/* 반응형 배치 (04단계, 07에서 새 배치로 바꿈: 00 공통규칙 6절).
+   기준(계약 7번, 04b 단일 기준): 화면 폭이 1024px 이상이면 PC 배치(맨 위 곡 등록 줄 + 3열, editor/style.css), 그보다 좁으면 하단 탭 바로 한 번에 한 화면.
+   탭 구성: [곡] 곡 등록 줄·곡 정보·최근 곡 / [분석] 분석 → 음원 → 변속 구간 → 노트 생성 / [편집] 채보 편집 / [검사] 검사 / [플레이] 게임 화면.
+   같은 기준 글자를 ui/layout/layoutLogic.ts 의 TAB_QUERY 가 쓴다.
+   색·간격은 tokens.css 의 토큰만 쓴다. 가로 스크롤이 생기지 않게 폭은 minmax/100%/vw 로 정한다. */
+
+/* ----- 모든 화면: 화면 전체 틀 ----- */
+html{-webkit-text-size-adjust:100%}
+.topbar{padding-left:max(var(--s4),env(safe-area-inset-left));padding-right:max(var(--s4),env(safe-area-inset-right))}
+.statusbar{padding-bottom:env(safe-area-inset-bottom)}
+.proxy{display:none}
+/* 플레이 화면 / 편집기 캔버스: 페이지가 같이 끌려가거나 확대되지 않게(에디터 캔버스 영역에만) */
+#vertical,#timeline{touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.cols{overscroll-behavior:contain}
+.tools .seg button.tool-erase{display:none}
+
+/* ===================================================================
+   탭 배치 (폭 <1024): 1단 + 하단 탭 바, 한 번에 한 화면. 카드 안 구성은 PC 와 같다
+   =================================================================== */
+@media (max-width:1023px){
+  :root{--tp-h:0px}
+  body{--topbar-h:calc(48px + env(safe-area-inset-top))}
+  .topbar{height:var(--topbar-h);padding-top:env(safe-area-inset-top);gap:8px}
+  .brand,.tag,.songinfo .songmeta{display:none}
+  .songinfo{flex:1;max-width:none;border-left:0;padding-left:0}
+  .songname{font-size:16px}
+  .actions>button:not(#btnSave){display:none}
+  .actions>.menuwrap{display:block}
+  .actions>.menuwrap>button{display:inline-block}
+  .actions kbd{display:none}
+  .menu .proxy.show{display:flex}
+  /* 상태 줄은 상단 바 바로 아래(탭 바·재생 줄에 가려지지 않게) */
+  .statusbar{order:1;border-top:0;border-bottom:1px solid var(--line);height:auto;min-height:28px;padding-top:4px;padding-bottom:4px;padding-left:max(var(--s3),env(safe-area-inset-left))}
+  .status{white-space:nowrap}
+  .status.expanded{white-space:normal;overflow:visible}
+  .appver{display:none}
+  #storageNote{order:1}
+  /* 본문: 탭에 따라 카드 한 묶음만 보인다 */
+  .cols{order:2;display:flex;flex-direction:column;gap:8px;padding:8px max(8px,env(safe-area-inset-right)) 8px max(8px,env(safe-area-inset-left));overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+  .mid,.left,.right{display:contents}
+  .resizer{display:none}
+  .tltools{display:none}
+  .cols .card{display:none;flex:none;padding:12px}
+  /* 곡 등록 줄(.dropbar)은 [곡] 탭에서만 보인다 */
+  .dropbar{order:2;display:none;padding:8px max(8px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left))}
+  body[data-tab="song"] .dropbar{display:flex}
+  body[data-tab="song"] .card[data-tab="song"],body[data-tab="analyze"] .card[data-tab="analyze"],body[data-tab="edit"] .card[data-tab="edit"],body[data-tab="inspect"] .card[data-tab="inspect"]{display:block}
+  body[data-tab="inspect"] .card.cardinspect{display:flex;min-height:60dvh}
+  .cardinspect .rightbody{max-height:none}
+  /* 하단 탭 바 */
+  .tabbar{order:3;display:flex;flex:none;height:calc(var(--tabbar-h) + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:var(--bg-panel);border-top:1px solid var(--line);z-index:50}
+  .tabbar button{flex:1 1 0;min-width:0;height:var(--tabbar-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;border:0;border-radius:0;background:transparent;color:var(--text-muted);font-size:12px}
+  .tabbar button i{font-style:normal;font-size:18px;line-height:1}
+  .tabbar button.on{color:var(--action-text);font-weight:var(--fw-strong);background:var(--action-soft)}
+  /* 편집 탭: 채보 편집 카드가 남는 높이를 채운다(세로 편집기). 화면 맨 아래(탭 바 위)에는 음원 카드 안의 재생 줄 그대로를 고정해 보인다
+     (06: 새 재생기를 만들지 않고 같은 요소를 쓰므로 어느 쪽에서 조작해도 표시가 같이 바뀐다) */
+  body[data-tab="edit"]{--tp-h:100px}
+  body[data-tab="edit"] .cols{overflow:hidden;padding-bottom:calc(var(--tp-h) + 8px)}
+  body[data-tab="edit"] .cardaudio{display:block;height:0;margin:0 0 -8px;padding:0;border:0;background:none;overflow:visible}
+  body[data-tab="edit"] .cardaudio>:not(.transport){display:none}
+  body[data-tab="edit"] .transport{position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom));z-index:40;margin:0;padding:6px max(10px,env(safe-area-inset-right)) 6px max(10px,env(safe-area-inset-left));background:var(--bg-panel);border-top:1px solid var(--line)}
+  body[data-tab="edit"] .transport .vol{display:none}
+  body[data-tab="edit"] .transport .play{order:1}
+  body[data-tab="edit"] .transport .time{order:2}
+  body[data-tab="edit"] .transport #seek{order:3}
+  body[data-tab="edit"] .transport .rates{order:4}
+  body[data-tab="edit"] .transport .rates .seg button{height:38px;min-height:38px}
+  body[data-tab="edit"] .transport .rates>b,body[data-tab="edit"] .transport .rates>#btnRate1{display:none}
+  body[data-tab="edit"] .cardedit{display:flex;flex:1 1 0;min-height:0}
+  /* 분석 탭의 음원 카드: 재생 줄은 카드 안에서 줄바꿈 */
+  #timeline{height:96px}
+  .audiohead{flex-wrap:wrap;gap:0 var(--s3)}
+  .transport{gap:4px 10px;align-items:center}
+  .transport .time{min-width:0;font-size:12px}
+  .transport #seek{flex:1 1 120px}
+  .transport .rates{flex:1 1 100%;display:flex}
+  .transport .rates .seg{flex:1}
+  .transport .rates .seg button{flex:1}
+  .vwrap{min-height:0}
+  #vertical{min-height:0}
+  .cardedit .cardhead{margin-bottom:4px}
+  .cardedit .ctitle{font-size:16px}
+  /* 큰 도구 막대 */
+  .tools .seg.wide button{height:48px;font-size:15px}
+  .toprow{flex-wrap:wrap}
+  .navbtns{margin-left:auto}
+  .selbar:not([hidden]){display:flex}
+  /* 하단 시트로 바뀌는 팝업 */
+  .menu{position:fixed;left:0;right:0;top:auto;bottom:0;max-height:80dvh;overflow-y:auto;border-radius:16px 16px 0 0;padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:60}
+  .menu button{height:48px}
+  .popover,.soundpop{position:fixed;left:8px;right:8px;top:auto;bottom:calc(var(--tabbar-h) + var(--tp-h) + env(safe-area-inset-bottom) + 8px);width:auto;max-width:none;max-height:60dvh;overflow-y:auto;white-space:normal;z-index:60}
+  dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:var(--r-card) var(--r-card) 0 0;max-height:92dvh;padding:16px 16px calc(16px + env(safe-area-inset-bottom));min-width:0;overflow-y:auto}
+  #deleteSongDialog{max-width:100%}
+  .toast{top:calc(var(--topbar-h) + 44px);bottom:auto;width:calc(100vw - 24px);max-width:none;max-height:5.6em;overflow:hidden;font-size:13px;line-height:1.4;padding:8px 12px;transform:translate(-50%,-12px)}
+  .toast.show{transform:translate(-50%,0)}
+  .undobar{top:auto;bottom:calc(var(--tabbar-h) + var(--tp-h) + 12px + env(safe-area-inset-bottom));max-width:92vw;width:auto}
+  /* 카드 안 칸이 좁아도 넘치지 않게 */
+  .presets{grid-template-columns:1fr 1fr}
+  .row{flex-wrap:wrap}
+  .ratio{flex-wrap:wrap}
+  .ratio output{width:auto}
+  .songlist{max-height:40dvh}
+  .songlist .sname{white-space:normal;overflow-wrap:anywhere}
+}
+
+/* ----- 가로 모바일(높이 <500): 탭 바는 왼쪽 세로 막대, 편집 탭은 편집기가 전체 폭 ----- */
+@media (max-height:499px) and (max-width:1023px){
+  body{--topbar-h:calc(40px + env(safe-area-inset-top))}
+  .topbar{--h-control:40px}
+  .tabbar{position:fixed;left:0;top:var(--topbar-h);bottom:0;width:calc(60px + env(safe-area-inset-left));height:auto;flex-direction:column;padding:0 0 env(safe-area-inset-bottom) env(safe-area-inset-left);border-top:0;border-right:1px solid var(--line)}
+  .tabbar button{height:auto;flex:1 1 0;min-height:44px}
+  .cols{margin-left:calc(60px + env(safe-area-inset-left));padding-left:8px}
+  .statusbar{margin-left:calc(60px + env(safe-area-inset-left))}
+  .dropbar{margin-left:calc(60px + env(safe-area-inset-left))}
+  body[data-tab="edit"] .cardedit .cardhead{display:none}
+  body[data-tab="edit"] .transport{left:calc(60px + env(safe-area-inset-left))}
+  .toolrow{flex-direction:row;flex-wrap:wrap;align-items:center}
+  .tools{flex:1 1 220px}
+  .toast{top:calc(var(--topbar-h) + 36px)}
+  .undobar{bottom:12px}
+  .popover,.soundpop{bottom:calc(var(--tp-h) + 8px)}
+  .cardinspect{min-height:0}
+}
+
+/* ===================================================================
+   손가락으로 쓰는 화면(태블릿·모바일 공통): 터치 영역 44x44 이상
+   =================================================================== */
+@media (max-width:1023px){
+  button,select,.num,input[type=number],input[type=text],input[type=range]{min-height:44px}
+  button{min-width:44px}
+  button.sm{height:44px;padding:0 12px}
+  .seg button,.rates .seg button{height:44px}
+  input[type=range]{touch-action:pan-y}
+  .songdel{width:44px;height:44px;font-size:20px;opacity:1}
+  .recentclear{height:44px;padding:0 10px}
+  .chk,.opt,.field>label,label.chk{min-height:44px;display:inline-flex;align-items:center;gap:8px}
+  input[type=checkbox],input[type=radio]{width:24px;height:24px;margin:0}
+  .soundmore summary{min-height:44px;display:inline-flex;align-items:center}
+  .issues li{min-height:44px;align-items:center}
+  .pcard{min-height:64px}
+  .num.small{width:72px}
+  .menu button{min-height:44px}
+  .tools .seg.wide button{min-height:48px}
+  .tools .seg.wide{flex-wrap:nowrap}
+  .tools .seg button.tool-erase{display:block}
+  .tools .seg button.tool-erase.active{color:var(--bad);background:var(--bad-bg)}
+  .drop{min-height:56px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2px 10px;text-align:center}
+  .dropbar .drop{height:auto;white-space:normal;padding:8px 12px}
+  .field{overflow-wrap:anywhere}
+  .help{overflow-wrap:anywhere}
+  .selbar:not([hidden]){display:flex}
+  .selbar{gap:6px;overflow-x:auto;padding-top:8px;touch-action:pan-x;-webkit-overflow-scrolling:touch}
+  .selbar button{flex:1 0 auto;height:44px;padding:0 8px;font-size:13px}
+  .selbar button.danger{color:var(--bad)}
+  .selbar .selinfo{flex:none;align-self:center;font-size:var(--fs-small);color:var(--text-muted);padding:0 4px;white-space:nowrap}
+  .cardedit .vwrap{touch-action:none}
+}
+/* 상단 바·옆 패널 탭에서 눌린 탭 표시 (PC 에서는 이 요소들이 보이지 않는다) */

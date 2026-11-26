@@ -1,0 +1,9 @@
+{
+  "_설명": "채보 검사 기준. opposite_lane_policy 는 allow(허용) / warn(경고) / error(오류) 중 하나입니다.",
+  "opposite_lane_policy": "allow",
+  "max_burst_per_sec": 12,
+  "max_same_lane_run": 8,
+  "max_nps": 10,
+  "max_simultaneous_ratio": 0.4,
+  "min_hold_beats": 0.25
+}

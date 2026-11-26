@@ -1,0 +1,121 @@
+/* 원본 프로토타입(RhythmActionGame_HitRus)의 ui/styles.css 중 플레이 화면 부분을 복사하고, 편집기 스타일과 겹치지 않도록 모든 선택자 앞에 .rcw-play 를 붙였다. 몬스터·캐릭터·스토리·메뉴 관련 규칙은 뺐다. */
+/* 배경: 차콜 바탕 + 동심원 + 사선 줄무늬. 위아래 가장자리는 바깥 배경색(블랙)으로 자연스럽게 이어진다 */
+.rcw-play .bg { inset: 0; background: radial-gradient(ellipse at 40% 22%, #3a2f36 0%, var(--charcoal) 38%, var(--black) 100%); background-size: cover; background-position: center; overflow: hidden; }
+.rcw-play .bg::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, var(--black) 0, rgba(14, 9, 15, 0) 7%, rgba(14, 9, 15, 0) 93%, var(--black) 100%); }
+.rcw-play .bg-rings { position: absolute; width: 900px; height: 900px; right: -420px; top: -160px; border-radius: 50%; background: repeating-radial-gradient(circle, transparent 0 46px, rgba(251, 78, 161, 0.13) 46px 50px); }
+.rcw-play .bg-stripes { position: absolute; inset: 0; background: repeating-linear-gradient(115deg, transparent 0 34px, rgba(251, 243, 232, 0.035) 34px 38px); }
+.rcw-play .btn { cursor: pointer; border: 4px solid var(--black); background: var(--pink); color: var(--black); font-weight: 800; font-size: 30px; min-height: 88px; padding: 12px 32px; border-radius: 20px; box-shadow: 5px 5px 0 var(--cream); transition: transform 0.08s, box-shadow 0.08s; }
+.rcw-play .btn:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 7px 7px 0 var(--cream); }
+.rcw-play .btn:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--cream); }
+.rcw-play .btn.big { font-size: 42px; min-height: 112px; padding: 16px 48px; border-radius: 26px; }
+.rcw-play .btn.small { font-size: 28px; min-height: 88px; padding: 10px 28px; border-radius: 18px; box-shadow: 4px 4px 0 var(--cream); }
+.rcw-play .btn.secondary { background: var(--charcoal); color: var(--cream); border-color: var(--cream); box-shadow: 5px 5px 0 var(--black); }
+.rcw-play .btn.capturing { background: var(--mint); animation: pulse 1s infinite; }
+.rcw-play .btn:disabled { background: #4a4348; color: #968e93; border-color: #2b2529; box-shadow: none; cursor: not-allowed; }
+.rcw-play :focus-visible { outline: 4px solid var(--mint); outline-offset: 3px; }
+.rcw-play .icon-btn { width: 88px; height: 88px; display: grid; place-items: center; cursor: pointer; background: rgba(14, 9, 15, 0.7); border: 3px solid var(--cream); border-radius: 22px; padding: 0; }
+.rcw-play .icon-btn svg { width: 42px; height: 42px; }
+.rcw-play .icon-btn:hover { background: var(--charcoal); }
+.rcw-play .back-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.rcw-play .back-btn svg { width: 28px; height: 28px; }
+/* 플레이 화면 (04-A). 레일은 Three.js 캔버스, 나머지는 HTML 겹침 화면. 위치 숫자는 playConfig.ts 의 layout 에서 CSS 변수(--pl-*)로 내려온다 */
+.rcw-play .play-screen .hidden { display: none !important; }
+.rcw-play .play-screen > * { pointer-events: none; }
+.rcw-play .pl-canvas { left: 0; top: 0; width: var(--pl-w); height: var(--pl-h); }
+.rcw-play .pl-input { inset: 0; pointer-events: auto !important; touch-action: none; cursor: pointer; }
+.rcw-play .pl-pause, .rcw-play .pl-overlay:not(.hidden) { pointer-events: auto !important; }
+/* 키 안내: 키보드를 쓸 때만. 판정원 바로 옆 바깥쪽 (판정원 그림은 캔버스에서 그린다) */
+.rcw-play .pl-keyguide { font-weight: 900; line-height: 1; color: var(--mint); white-space: nowrap; text-shadow: 0 2px 0 rgba(14, 9, 15, 0.8); transition: opacity 0.05s, text-shadow 0.05s; }
+.rcw-play .pl-keyguide.lane1 { color: var(--pink); }
+/* 4키: 글자가 판정원 안에 들어간다. 왼쪽 두 레인은 민트, 오른쪽 두 레인은 핑크 */
+.rcw-play .pl-keyguide.k4 { color: var(--mint); }
+.rcw-play .pl-keyguide.k4.lane2, .rcw-play .pl-keyguide.k4.lane3 { color: var(--pink); }
+.rcw-play .pl-keyguide.down { text-shadow: 0 0 14px currentColor, 0 2px 0 rgba(14, 9, 15, 0.8); }
+/* 터치 기기 탭 영역 안내: 왼쪽·오른쪽 반투명 표시. 몇 초 뒤 사라진다 */
+.rcw-play .pl-tapzones { left: 0; top: var(--pl-tapzone-top); width: var(--pl-w); height: var(--pl-tapzone-height); display: flex; opacity: 0; z-index: 4; }
+.rcw-play .pl-tapzones.show { animation: pl-tapzone-fade var(--pl-tapzone-ms) ease-out forwards; }
+.rcw-play .pl-tapzone { flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 200px; }
+.rcw-play .pl-tapzone b { font-size: 40px; color: var(--cream); text-shadow: 0 3px 0 var(--black); letter-spacing: 2px; }
+.rcw-play .pl-tapzone.lane0 { background: linear-gradient(to bottom, rgba(118, 240, 184, 0) 0%, rgba(118, 240, 184, 0.28) 100%); border-right: 3px dashed rgba(251, 243, 232, 0.5); }
+.rcw-play .pl-tapzone.lane1 { background: linear-gradient(to bottom, rgba(251, 78, 161, 0) 0%, rgba(251, 78, 161, 0.28) 100%); }
+/* 위쪽: 일시정지(왼쪽 위 모서리) + 곡 정보 줄, 그 아래 패널 3칸(점수·피버·부정수치) */
+.rcw-play .pl-panel { background: rgba(14, 9, 15, 0.92); border: 3px solid var(--cream); border-radius: 18px; padding: 8px 14px; box-shadow: 5px 5px 0 var(--pink); display: flex; flex-direction: column; justify-content: center; gap: 8px; top: calc(var(--pl-panel-top) + var(--safe-top)); width: var(--pl-panel-width); height: var(--pl-panel-height); overflow: hidden; }
+.rcw-play .pl-label { font-weight: 800; letter-spacing: 1px; font-size: 22px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.rcw-play .pl-label svg { width: 22px; height: 22px; }
+.rcw-play .pl-label.mint { color: var(--mint); }
+.rcw-play .pl-label.pink { color: var(--pink); }
+.rcw-play .pl-score { left: var(--pl-margin); }
+.rcw-play .pl-fever { left: calc(var(--pl-margin) + var(--pl-panel-width) + var(--pl-panel-gap)); border-color: var(--mint); box-shadow: 5px 5px 0 var(--mint); }
+.rcw-play .pl-neg { left: calc(var(--pl-margin) + (var(--pl-panel-width) + var(--pl-panel-gap)) * 2); }
+.rcw-play .pl-score-value { font-size: 38px; line-height: 1; letter-spacing: 0; }
+.rcw-play .pl-fever.active { box-shadow: 0 0 22px 4px rgba(118, 240, 184, 0.85), 5px 5px 0 var(--mint); animation: pl-fever-glow 0.7s infinite alternate; }
+@keyframes pl-fever-glow { to { box-shadow: 0 0 34px 8px rgba(118, 240, 184, 0.95), 5px 5px 0 var(--mint); } }
+.rcw-play .pl-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.rcw-play .pl-panel-head b { font-size: 30px; }
+.rcw-play .pl-gauge { height: 24px; background: var(--charcoal); border-radius: 12px; overflow: hidden; }
+.rcw-play .pl-gauge-fill { height: 100%; width: 0; border-radius: 12px; }
+.rcw-play .pl-gauge-fill.mint { background: repeating-linear-gradient(135deg, #76f0b8 0 8px, #54d49a 8px 16px); }
+.rcw-play .pl-gauge-fill.pink { background: repeating-linear-gradient(135deg, var(--neg-color, #fb4ea1) 0 8px, rgba(251, 243, 232, 0.4) 8px 16px); }
+/* 작은 설명 글자는 폰에서 읽을 수 없어 세로 화면에서는 숨긴다 (게이지 이름·숫자는 그대로) */
+.rcw-play .pl-hint { display: none; }
+.rcw-play .pl-pause { left: calc(var(--pl-margin) + var(--safe-left)); top: calc(var(--pl-pause-top) + var(--safe-top)); width: var(--pl-pause-size); height: var(--pl-pause-size); display: grid; place-items: center; cursor: pointer; background: rgba(14, 9, 15, 0.85); border: 4px solid var(--cream); border-radius: 22px; color: var(--cream); padding: 0; z-index: 8; }
+.rcw-play .pl-pause svg { width: 40px; height: 40px; }
+.rcw-play .pl-pause:hover { background: var(--charcoal); }
+.rcw-play .pl-progress { left: 0; top: 0; width: var(--pl-w); height: 9px; background: rgba(251, 243, 232, 0.14); }
+.rcw-play .pl-progress-fill { height: 100%; width: 100%; transform-origin: left center; transform: scaleX(0); background: linear-gradient(90deg, var(--pink), var(--mint)); }
+/* 콤보·판정 글자·카운트다운·연타 글자 */
+.rcw-play .pl-countdown { left: 0; width: var(--pl-w); top: var(--pl-countdown-top); text-align: center; font-size: 230px; font-weight: 900; line-height: 1; color: var(--cream); text-shadow: 8px 8px 0 var(--pink), 14px 14px 0 var(--black); }
+.rcw-play .pl-burst-label { transform: translate(-50%, -50%); background: var(--pink); color: var(--black); font-weight: 900; font-size: 34px; padding: 2px 18px; border-radius: 14px; border: 4px solid var(--black); box-shadow: 3px 3px 0 var(--cream); }
+/* 곡 정보 (맨 위 줄, 일시정지 오른쪽) */
+.rcw-play .pl-info { left: var(--pl-info-left); right: var(--pl-margin); top: calc(var(--pl-info-top) + var(--safe-top)); height: var(--pl-info-height); display: flex; align-items: center; gap: 12px; background: rgba(14, 9, 15, 0.92); border: 3px solid var(--cream); border-radius: 999px; padding: 4px 8px 4px 20px; font-weight: 800; box-shadow: 4px 4px 0 var(--pink); min-width: 0; }
+.rcw-play .pl-info-stage { color: var(--mint); font-size: 22px; letter-spacing: 1px; white-space: nowrap; }
+.rcw-play .pl-info-song { flex: 1; min-width: 0; font-size: 26px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rcw-play .pl-info-diff { background: var(--pink); color: var(--black); border-radius: 999px; padding: 4px 16px; font-size: 22px; white-space: nowrap; }
+/* 안내·일시정지·임시 결과 패널 */
+.rcw-play .pl-overlay { inset: 0; display: grid; place-items: center; background: rgba(14, 9, 15, 0.78); z-index: 20; padding: 0 24px; }
+.rcw-play .pl-dialog { width: 100%; max-width: 672px; background: rgba(14, 9, 15, 0.96); border: 4px solid var(--cream); border-radius: 30px; padding: 36px 32px 34px; box-shadow: 8px 8px 0 var(--mint); text-align: center; display: flex; flex-direction: column; gap: 20px; align-items: center; }
+.rcw-play .pl-dialog.pink { box-shadow: 8px 8px 0 var(--pink); }
+.rcw-play .pl-dialog-title { margin: 0; font-size: 64px; text-shadow: 4px 4px 0 var(--pink); }
+.rcw-play .pl-dialog.pink .pl-dialog-title { text-shadow: 4px 4px 0 #7a2a52; }
+.rcw-play .pl-dialog-text { margin: 0; font-size: 28px; color: var(--cream); line-height: 1.45; }
+.rcw-play .pl-dialog-note { margin: 0; font-size: 24px; color: var(--muted); line-height: 1.4; }
+.rcw-play .pl-buttons { display: flex; flex-direction: column; gap: 18px; margin-top: 10px; width: 100%; }
+.rcw-play .pl-buttons .btn { width: 100%; }
+.rcw-play .pl-result-main { display: flex; gap: 40px; align-items: flex-end; }
+.rcw-play .pl-result-rank, .rcw-play .pl-result-score { display: flex; flex-direction: column; align-items: center; }
+.rcw-play .pl-result-rank span, .rcw-play .pl-result-score span { color: var(--mint); font-weight: 800; letter-spacing: 3px; font-size: 24px; }
+.rcw-play .pl-result-rank b { font-size: 110px; line-height: 1; color: var(--pink); text-shadow: 4px 4px 0 var(--black); }
+.rcw-play .pl-result-score b { font-size: 64px; line-height: 1.1; }
+.rcw-play .pl-counts { display: flex; gap: 10px; width: 100%; }
+.rcw-play .pl-count { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border: 3px solid rgba(251, 243, 232, 0.35); border-radius: 14px; font-weight: 800; font-size: 24px; }
+.rcw-play .pl-count b { font-size: 34px; color: var(--cream); }
+/* 04-B 연출: 판정 글자 + 콤보 (콤보는 판정 글자 바로 위에 맞붙임, 같은 가로 위치). 위치(left·width·bottom)는 playHud.ts 가 playConfig 값으로 정한다 */
+.rcw-play .pl-judge-block { display: flex; flex-direction: column; align-items: center; z-index: 6; }
+.rcw-play .pl-combo { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.rcw-play .pl-combo-value { font-size: 84px; line-height: 1; text-shadow: 5px 5px 0 var(--mint), 8px 8px 0 var(--black); transform-origin: center bottom; will-change: transform; }
+.rcw-play .pl-combo-label { color: var(--mint); font-weight: 800; letter-spacing: 6px; font-size: 24px; margin-bottom: 2px; }
+.rcw-play .pl-judge-text { min-height: 1.1em; text-align: center; font-weight: 900; letter-spacing: 2px; line-height: 1.1; white-space: nowrap; opacity: 0; text-shadow: 3px 3px 0 var(--black), -2px -2px 0 var(--black), 2px -2px 0 var(--black), -2px 2px 0 var(--black); }
+.rcw-play .pl-judge-text.pop { animation: pl-judge-pop 0.7s ease-out forwards; }
+.rcw-play .pl-judge-text.pop-miss { animation: pl-judge-miss 0.8s ease-in forwards; }
+@keyframes pl-judge-pop { 0% { opacity: 1; transform: scale(1.4); } 14% { opacity: 1; transform: scale(1); } 70% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes pl-judge-miss { 0% { opacity: 1; transform: translateY(-6px) rotate(-3deg); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(46px) rotate(5deg); } }
+.rcw-play .pl-burst-label.pop { animation: pl-burst-pop 0.16s ease-out; }
+@keyframes pl-burst-pop { 0% { transform: translate(-50%, -50%) scale(1.45); } 100% { transform: translate(-50%, -50%) scale(1); } }
+/* 피버 연출: 시작 약한 플래시·FEVER! 글자, 중 배경 발광(한 가지 색)·패널 빛남, 끝날 때 부드럽게 */
+.rcw-play .pl-fever-flash { inset: 0; background: #fff; opacity: 0; z-index: 15; }
+.rcw-play .pl-fever-flash.go { animation: pl-fever-flash 0.15s ease-out; }
+@keyframes pl-fever-flash { 0% { opacity: var(--flash-peak, 0.22); } 100% { opacity: 0; } }
+.rcw-play .pl-fever-title { left: 0; width: var(--pl-w); top: var(--pl-fever-title-top); text-align: center; font-size: 130px; font-weight: 900; letter-spacing: 6px; color: var(--mint); text-shadow: 6px 6px 0 var(--pink), 10px 10px 0 var(--black); opacity: 0; z-index: 16; }
+.rcw-play .pl-fever-title.go { animation: pl-fever-title 0.9s ease-out; }
+@keyframes pl-fever-title { 0% { opacity: 0; transform: scale(0.6); } 18% { opacity: 1; transform: scale(1.15); } 30% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(1.05); } }
+/* 피버 배경 발광: 줄무늬 전환·흐름 없이, 한 가지 색의 투명한 빛만 불투명도로 조절 */
+.rcw-play .bg-fever-glow { position: absolute; inset: 0; opacity: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 70%, rgba(255, 214, 232, 0.95) 0%, rgba(255, 156, 203, 0.75) 45%, rgba(251, 78, 161, 0.35) 100%); }
+.rcw-play .pl-score-mult { position: absolute; right: 8px; top: 6px; background: var(--pink); color: var(--black); font-weight: 900; font-size: 24px; padding: 0 10px; border-radius: 999px; border: 3px solid var(--black); box-shadow: 2px 2px 0 var(--cream); }
+.rcw-play .pl-new-best { margin: 8px 0 0; font-size: 40px; font-weight: 900; color: var(--mint, #7ff2d0); letter-spacing: 2px; text-shadow: 3px 3px 0 var(--pink); animation: newBestPop 0.7s ease-out both; }
+@keyframes newBestPop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); } }
+/* 4키 터치 구역 안내: 칸 폭은 코드에서 정하고, 색은 왼쪽 두 칸 민트·오른쪽 두 칸 핑크 */
+.rcw-play .pl-tapzone.k4 { padding-bottom: 80px; border-right: 3px dashed rgba(251, 243, 232, 0.35); }
+.rcw-play .pl-tapzone.k4.lane1 { border-right: 3px dashed rgba(251, 243, 232, 0.5); background: linear-gradient(to bottom, rgba(118, 240, 184, 0) 0%, rgba(118, 240, 184, 0.28) 100%); }
+.rcw-play .pl-tapzone.k4.lane2 { background: linear-gradient(to bottom, rgba(251, 78, 161, 0) 0%, rgba(251, 78, 161, 0.28) 100%); }
+.rcw-play .pl-tapzone.k4.lane3 { border-right: 0; background: linear-gradient(to bottom, rgba(251, 78, 161, 0) 0%, rgba(251, 78, 161, 0.28) 100%); }
+.rcw-play .pl-tapzone.k4.lane0 { background: linear-gradient(to bottom, rgba(118, 240, 184, 0) 0%, rgba(118, 240, 184, 0.28) 100%); }

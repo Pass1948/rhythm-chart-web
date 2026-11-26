@@ -1,0 +1,10 @@
+node_modules/
+dist/
+_to_delete/
+log/
+.claude/
+prompt/
+reference/
+unity_resources/
+*.log
+.env*
