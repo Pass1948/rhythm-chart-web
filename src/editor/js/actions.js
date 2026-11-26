@@ -1,7 +1,7 @@
 // 화면의 동작 흐름: 곡 올리기 → 분석 → 노트 자동 생성 → 수정 → 저장 → 내보내기. 로컬 API(브라우저 안 기능)와 상태 변경을 묶어 둔다.
 import { api } from '../../app/localApi.js';
 import { makeClip, tryPaste, BURST_CLOSED_REASON, TYPE_NAMES, laneText, swapLane, tryUpdate, removeNote, removeNotes } from './edit_rules.js';
-import { withoutBurst } from './ratio_rules.js';
+import { thumbRules } from '../../generate/rules.ts';
 import {
   S, applyKeyMode, commit, durationMs, emit, endPaste, gridStep, maxTick, notes, rebuildTiming, redo, select, selectedNote, setChart, setNotes, setSelection, snapshot, status, syncKeyMode, undo,
 } from './state.js';
@@ -9,7 +9,7 @@ import {
 import { ANALYZE_MIN_MS, GENERATE_MIN_MS, ProgressTracker } from './progress_view.js';
 import { makeDemoFile } from '../../storage/demoSong.ts';
 import { confirmAndSave } from './export_ui.js';
-import { requestExtras } from './gen_options.js';
+import { optionsFor } from './gen_options.js';
 
 // 버튼 옆 진행 표시 상태 (계산은 progress_view.js, 그리기는 panels.js)
 export const TRACK = { analyze: new ProgressTracker({ minMs: ANALYZE_MIN_MS }), generate: new ProgressTracker({ minMs: GENERATE_MIN_MS }) };
@@ -308,36 +308,18 @@ export async function generate() {
   if (!S.analysis) return status('먼저 분석을 해 주세요. [분석] 버튼을 누르면 박자와 소리가 시작되는 지점을 찾습니다.', 'warn');
   if (notes().length && !confirm('기존 노트를 교체합니다. 계속할까요?\n(되돌리기 Ctrl+Z 로 복구할 수 있습니다)')) return;
   const diff = document.getElementById('difficulty').value;
-  const preset = (S.presets && S.presets.difficulties && S.presets.difficulties[diff]) || { nps_base: 3, max_nps: 6 };
-  const density = Number(document.getElementById('density').value) / 55;
+  const settings = optionsFor(diff);
+  const rules = {...thumbRules(diff), ...settings.rules};
+  const read = id => document.getElementById(id).value;
   const body = {
-    song: S.song, difficulty: diff, lane_mode: document.getElementById('laneMode').value,
-    ratios: withoutBurst(S.requested), hold_beats: S.holdBeats, burst_count: S.burstCount,
-    grid_tolerance: document.getElementById('gridTolerance').value,
-    design_mode: document.getElementById('designMode').value,
-    key_mode: Number(document.getElementById('keyModeSelect').value) === 4 ? 4 : 2, // 10단계: 2키 / 4키
-    nps_base: Math.round(preset.nps_base * density * 100) / 100, max_nps: Math.round(preset.max_nps * Math.max(1, density) * 100) / 100,
-    // 채보에 저장된 현재 BPM 구간 전체와 시작점 (분석의 대표 BPM 으로 새로 만들어 덮어쓰지 않는다)
-    bpm_map: S.chart.timing.bpm_map, audio_offset_ms: S.chart.song.audio_offset_ms || 0,
+    song: S.song, difficulty: diff, grid_tolerance: read('gridTolerance'),
+    density_scale: Number(read('density')) / 55,
+    rule_overrides: settings.rules, four_key_simultaneous: Number(read('fkSim')),
+    hold_percent: rules.hold * [0, 0.4, 0.75, 1][Number(read('holdAmount'))],
+    bpm_map: S.chart.timing.bpm_map, audio_offset_ms: S.chart.song.audio_offset_ms || 0
   };
-  if (body.design_mode === 'unified') {
-    const num = (id) => { const v = parseFloat(document.getElementById(id).value); return Number.isFinite(v) ? v : null; };
-    const a = num('rangeStart'), b = num('rangeEnd'), t = num('targetNps');
-    if (a !== null) body.range_start_ms = Math.round(a * 1000);
-    if (b !== null) body.range_end_ms = Math.round(b * 1000);
-    if (t !== null) body.target_nps = t;
-    body.allow_burst = false; // [2.2] 새 채보는 연타를 만들지 않는다
-    delete body.nps_base; delete body.max_nps;
-  }
-  // [14] 레퍼런스·통합: 규칙 기본값에서 바꾼 칸만 알린다(바꾸지 않으면 요청은 이전과 같다). 기존 방식은 아무것도 붙지 않는다
-  Object.assign(body, requestExtras(body.design_mode, diff, { ratios: body.ratios, hold_beats: body.hold_beats, burst_count: body.burst_count, density: Number(document.getElementById('density').value) }));
-  if (body.key_mode === 4) {
-    // [13] 4키 전용 조절 값 (칸이 비었거나 범위 밖이면 난이도 기본값을 쓴다)
-    const dv = parseFloat(document.getElementById('fkDensity').value);
-    const sv = parseFloat(document.getElementById('fkSim').value);
-    if (Number.isFinite(dv) && dv >= 1 && dv <= 1.6) body.four_key_density = Math.round(dv * 100) / 100;
-    if (Number.isFinite(sv) && sv >= 0 && sv <= 30) body.four_key_simultaneous = Math.round(sv);
-  }
+  if (read('rangeStart')) body.range_start_ms = Number(read('rangeStart')) * 1000;
+  if (read('rangeEnd')) body.range_end_ms = Number(read('rangeEnd')) * 1000;
   if (S.gridDiv !== 'free') body.grid_division = Number(S.gridDiv);
   if (TRACK.generate.isRunning()) return;
   TRACK.generate.begin(now(), 'plain', '만드는 중…');

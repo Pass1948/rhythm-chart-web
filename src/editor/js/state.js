@@ -23,7 +23,7 @@ export const S = {
   paste: null,         // 붙여넣기 미리보기 모드일 때 {flip}
   selectedIds: [],     // 선택된 노트 id 목록 (드래그·Shift 로 여러 개 선택)
   dirty: false,
-  gridDiv: 16,         // 격자(마디를 몇 칸으로 나눌지), 'free' 면 격자 없음
+  gridDiv: 8,         // 격자(마디를 몇 칸으로 나눌지), 'free' 면 격자 없음
   holdBeats: 1,        // 롱노트 기본 길이(박)
   burstCount: 8,       // 연타 기본 횟수
   followPlayhead: true,

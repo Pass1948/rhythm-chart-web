@@ -9,7 +9,7 @@ import {
   ChartFormatError, ExportBlocked, MODE_DESCRIPTIONS, KEEP_SOUND, chartToJson, exportEditJson, exportUnity, exportUnitySplit, loadChartData,
   loadJudgeConfig, loadPresets, loadValidateConfig, newChart, retimeChart, safeName, sha256Hex,
 } from '../core/index.ts';
-import { generateChart, thumbRules } from '../generate/index.ts';
+import { generateChart } from '../generate/index.ts';
 import { SongStore } from '../storage/songStore.ts';
 import { buildExportFiles } from '../storage/exportFiles.ts';
 import { buildUnityBundle } from '../storage/unityBundle.ts';
@@ -217,12 +217,6 @@ export const api = {
   /** 분석 방식·난이도·레인 방식 목록(config\presets.json) */
   presets: async () => {
     const data = JSON.parse(JSON.stringify(loadPresets()));
-    // [14] 레퍼런스·통합 규칙의 난이도별 기본값(코드 기본값 + presets.json 덮어쓰기). 화면이 "규칙 기본값"을 미리 채울 때 쓴다
-    data.rule_defaults = { reference: {}, unified: {} };
-    for (const d of ['EASY', 'NORMAL', 'HARD', 'CUSTOM']) {
-      data.rule_defaults.reference[d] = thumbRules(d);
-      data.rule_defaults.unified[d] = thumbRules(d);
-    }
     return data;
   },
 

@@ -8,8 +8,9 @@ import { BURST_MAX, BURST_MIN, FOUR_KEY_LABELS, TYPE_NAMES, burstRate, clampBurs
 import { formatTime } from './vertical.js';
 import { renderHelp } from './help_rules.js';
 import { normalizeShape } from './note_shape.js';
-import { currentCommon, defaultsOf, genKey, overrideOf, resetOverrides, rulesOf, saveCommon, saveRule } from './gen_options.js';
-import { RULE_FIELDS, ruleValueProblem, sameCommon } from '../../generate/ruleFields.ts';
+import { optionsFor, saveOptions } from './gen_options.js';
+import { fields } from '../../generate/ruleFields.ts';
+import { thumbRules } from '../../generate/rules.ts';
 import { loadSettings, saveSettings } from '../../storage/settingsStore.ts';
 import { nudgeOffset } from './metronome.js';
 import { initUnityLinkUi, refreshUnityLinkUi } from './unity_link_ui.js';
@@ -111,15 +112,21 @@ export function initPanels() {
   $('btnClear').addEventListener('click', clearNotes);
   $('density').addEventListener('input', (e) => { $('densityVal').textContent = e.target.value + '%'; });
   $('difficulty').addEventListener('change', () => {
-    const g = { EASY: 4, NORMAL: 8, HARD: 16 }[$('difficulty').value];
+    const g = { EASY: 4, NORMAL: 8, HARD: 16, GLIITCH: 16 }[$('difficulty').value];
     $('gridSelect').value = String(g);
     S.gridDiv = g;
   });
   $('gridSelect').addEventListener('change', (e) => { S.gridDiv = e.target.value === 'free' ? 'free' : Number(e.target.value); emit('view'); });
-  $('holdBeats').addEventListener('change', (e) => { S.holdBeats = Math.max(0.25, Math.min(16, Number(e.target.value) || 1)); e.target.value = S.holdBeats; });
-  linkRangeNumber($('burstRange'), $('burstNum'), (v) => { S.burstCount = v; });
-  initRatios();
-  initDesignMode();
+  for (const [id,key] of [['density','density'],['holdAmount','amount'],['fkSim','simultaneous']]) {
+    $(id).addEventListener('change', () => {
+      const diff = $('difficulty').value;
+      saveOptions(diff, {...optionsFor(diff), [key]: Number($(id).value)});
+      fillGenFields();
+    });
+  }
+  $('difficulty').addEventListener('change', fillGenFields);
+  $('btnGenReset').addEventListener('click', () => { saveOptions($('difficulty').value, {}); fillGenFields(); });
+  fillGenFields();
 
   // ----- 상단 버튼 -----
   $('btnSave').addEventListener('click', save);
@@ -222,231 +229,32 @@ function initViewOptions() {
 }
 
 // ---------- 디자인 모드: 기존 방식 / 레퍼런스 규칙 ----------
-function initDesignMode() {
-  const sel = $('designMode');
-  const apply = () => {
-    const ref = sel.value === 'reference' || sel.value === 'unified';
-    const uni = sel.value === 'unified';
-    document.querySelectorAll('.classic-only').forEach((el) => { el.inert = ref; el.classList.toggle('dim', ref); });
-    document.querySelectorAll('.not-unified').forEach((el) => { el.inert = uni; el.classList.toggle('dim', uni); });
-    $('unifiedBox').hidden = !uni;
-    // [14] 모드의 차이 = 지키는 규칙. 아래 조절 칸은 세 모드 모두 같고, 레퍼런스·통합은 규칙 기본값이 미리 채워진다
-    $('designModeHelp').textContent = uni
-      ? '통합 규칙: 히트러스 규칙을 지킵니다 — 구간 시작 2초 뒤~끝 1초 전, 같은 레인 최소 간격, 1초 최대 노트 수, 롱노트 중 노트 한도, 촘촘한 연속 뒤 쉼, 연타는 오래 빈 곳에만. 만든 뒤 규칙 점검 결과를 알려 줍니다. 아래 칸은 규칙 기본값으로 채워지고, 바꾼 값이 우선합니다(세부 숫자는 [고급 규칙]).'
-      : ref
-      ? '레퍼런스 규칙: 실제 채보 2,395개의 분포를 지킵니다 — 레인 전환 확률, 같은 레인 연속 한도, 지그재그 한도, 고밀도 연속 시간 제한, 곡 구조(도입부는 적게·후반은 많게). 아래 칸은 규칙 기본값으로 채워지고, 바꾼 값이 우선합니다(세부 숫자는 [고급 규칙]).'
-      : '기존 방식: 지키는 규칙 없이 아래 값을 그대로 씁니다 (예측하기 쉬움).';
-  };
-  sel.addEventListener('change', apply);
-  apply();
-  initKeyMode();
-  initGenFields();
-}
-
-// ---------- [14] 공통 조절 칸 + [고급 규칙] (A안: 세 모드 모두 같은 칸) ----------
-// 모드·난이도의 기본값(레퍼런스·통합 = 규칙 기본값)을 채우고, 사용자가 바꾼 칸만 이 기기에 저장한다(gen_options.js). 생성 요청은 actions.js.
-let showRatiosFn = () => {};
-
 export function fillGenFields() {
-  const { mode, diff } = genKey();
-  const cur = currentCommon(mode, diff);
-  S.requested = { ...cur.ratios };
-  S.holdBeats = cur.hold_beats;
-  S.burstCount = cur.burst_count;
-  $('holdBeats').value = String(cur.hold_beats);
-  $('burstRange').value = String(cur.burst_count);
-  $('burstNum').value = String(cur.burst_count);
-  $('density').value = String(cur.density);
-  $('densityVal').textContent = cur.density + '%';
-  showRatiosFn();
-  paintGenTags();
-  renderAdvRules();
-}
-
-/** 칸 옆 "규칙 기본값" 표시: 레퍼런스·통합에서 값이 규칙 기본값과 같을 때만 */
-function paintGenTags() {
-  const { mode, diff } = genKey();
-  const def = defaultsOf(mode, diff);
-  const on = mode !== 'classic';
-  const cur = { ratios: S.requested, hold_beats: S.holdBeats, burst_count: S.burstCount, density: Number($('density').value) };
-  const tags = { ratios: 'tagRatios', hold_beats: 'tagHold', burst_count: 'tagBurst', density: 'tagDensity' };
-  for (const [k, id] of Object.entries(tags)) $(id).hidden = !(on && sameCommon(k, cur[k], def[k]));
-}
-
-/** [고급 규칙] 칸을 고른 모드의 규칙 숫자로 다시 그린다 */
-function renderAdvRules() {
-  const { mode, diff } = genKey();
-  const box = $('advRulesBody');
-  const rules = rulesOf(mode, diff);
-  if (mode === 'classic' || !rules) {
-    box.innerHTML = '<p class="help">기존 방식은 지키는 규칙이 없어 고급 규칙이 없습니다. 위 값을 그대로 씁니다.</p>';
-    return;
-  }
-  const saved = overrideOf(mode, diff).rules || {};
-  box.innerHTML = '<p class="adverr" id="advErr" role="alert"></p>' + RULE_FIELDS[mode].map((f) => {
-    const v = saved[f.key] !== undefined ? saved[f.key] : f.get(rules);
-    const changed = saved[f.key] !== undefined;
-    return `<div class="advrow"><label for="adv_${f.key}">${esc(f.label)}${changed ? '' : ' <small class="ruletag">규칙 기본값</small>'}</label>
-      <input id="adv_${f.key}" class="num small" type="number" min="${f.min}" max="${f.max}" step="${f.step}" value="${v}" data-key="${f.key}">
-      <small>${esc(f.help)} (범위 ${f.min}~${f.max}, 기본 ${f.get(rules)})</small></div>`;
-  }).join('');
-  for (const input of box.querySelectorAll('input[data-key]')) {
-    input.addEventListener('change', () => {
-      const f = RULE_FIELDS[mode].find((x) => x.key === input.dataset.key);
-      const problem = ruleValueProblem(f, input.value);
-      if (problem) {
-        $('advErr').textContent = problem;
-        status(problem, 'warn');
-        return;
-      }
-      $('advErr').textContent = '';
-      saveRule(f.key, Number(input.value));
-      renderAdvRules();
-    });
-  }
-}
-
-function initGenFields() {
-  // 사용자가 바꾼 칸만 저장 (기존 입력 처리 뒤에 실행되도록 나중에 연결한다)
-  const saveRatios = () => { saveCommon('ratios', S.requested); paintGenTags(); };
-  for (const id of ['ratioHold', 'ratioBurst']) {
-    $(id).addEventListener('change', saveRatios);
-    $(id + 'Num').addEventListener('change', saveRatios);
-  }
-  $('holdBeats').addEventListener('change', () => { saveCommon('hold_beats', S.holdBeats); paintGenTags(); });
-  const saveBurst = () => { saveCommon('burst_count', S.burstCount); paintGenTags(); };
-  $('burstRange').addEventListener('change', saveBurst);
-  $('burstNum').addEventListener('change', saveBurst);
-  $('density').addEventListener('change', () => { saveCommon('density', Number($('density').value)); paintGenTags(); });
-  $('designMode').addEventListener('change', fillGenFields);
-  $('difficulty').addEventListener('change', fillGenFields);
-  $('btnGenReset').addEventListener('click', () => {
-    resetOverrides();
-    fillGenFields();
-    fillFourKeyInputs();
-    const { mode } = genKey();
-    $('genResetMsg').textContent = mode === 'classic' ? '처음 값으로 되돌렸습니다.' : '이 모드·난이도의 규칙 기본값으로 되돌렸습니다.';
-  });
-  fillGenFields();
-}
-
-// ---------- 키 모드 (10단계): 2키(왼쪽·오른쪽) / 4키(S D K L) ----------
-// 선택 상자는 "다음에 만들 채보의 키 모드"다. 노트가 하나도 없는 채보는 고르는 즉시 바뀌고,
-// 노트가 있는 채보는 임의로 바꾸지 않는다 — [노트 자동 생성]으로 다시 만들면(기존 교체 확인 절차) 그때 바뀐다.
-function initKeyMode() {
-  const sel = $('keyModeSelect');
-  let shown = -1;
-  const sync = () => {
-    if (keyMode() === shown) return; // 키 모드가 바뀐 때(곡 열기·다시 만들기·되돌리기)만 선택 상자를 맞춘다
-    shown = keyMode();
-    sel.value = String(shown); // 열린 채보의 현재 키 모드를 보여 준다
-    paintKeyMode();
-  };
-  const paintKeyMode = () => {
-    const four = Number(sel.value) === 4;
-    $('fourKeyBox').hidden = !four;
-    if (four) fillFourKeyInputs(); // 프리셋을 늦게 읽어도 4키를 고를 때 난이도 값으로 맞춘다
-    const mode = $('designMode').value;
-    $('laneModeField').inert = four || mode !== 'classic';
-    $('laneModeField').classList.toggle('dim', four || mode !== 'classic');
-    // 잠길 때 이유 한 줄 (좌·우 버튼 패턴은 기존 방식 2키 전용)
-    const why = four ? '4키는 손 기준 패턴(계단·트릴 등)을 써서 이 칸을 쓰지 않습니다.' : mode !== 'classic' ? '이 모드는 레인 규칙(전환 확률·연속 한도)이 좌우 패턴을 대신해서 이 칸을 쓰지 않습니다.' : '';
-    $('laneModeWhy').textContent = why;
-    $('laneModeWhy').hidden = !why;
-  };
-  sel.addEventListener('change', () => {
-    paintKeyMode();
-    if (!S.chart) return;
-    const want = Number(sel.value) === 4 ? 4 : 2;
-    if (want === keyMode()) return;
-    if (notes().length) {
-      status(`이 채보에는 노트가 있어 ${keyMode()}키로 유지합니다. ${want}키로 바꾸려면 [노트 자동 생성]으로 다시 만들어 주세요.`, 'info');
-      return;
-    }
-    const before = snapshot();
-    applyKeyMode(S.chart, want);
-    syncKeyMode();
-    commit(before);
-    emit('timing');
-    status(`키 모드를 ${want}키로 바꿨습니다. 편집 화면의 레인이 ${want}개가 됩니다.`, 'ok');
-  });
-  $('designMode').addEventListener('change', paintKeyMode);
-  initFourKeyInputs();
-  on('song', () => { shown = -1; sync(); });
-  on('change', sync);
-  sync();
-}
-
-// ---------- 4키 생성 조절 칸 (13단계): 노트 양 배율 / 동시 노트 비율 ----------
-// 기본값은 config\presets.json 의 four_key(난이도별). 사용자가 바꾼 값은 난이도별로 이 기기 설정(fourKeyGen)에 저장하고, 난이도를 바꾸면 그 난이도 값으로 다시 채운다.
-function fourKeyDefaults(diff) {
-  const fk = (S.presets && S.presets.four_key) || {};
-  const d = (fk.density && (fk.density[diff] ?? fk.density.NORMAL)) ?? 1.25;
-  const s = (fk.simultaneous_percent && (fk.simultaneous_percent[diff] ?? fk.simultaneous_percent.NORMAL)) ?? 5;
-  return { density: d, simultaneous: s };
-}
-
-function fillFourKeyInputs() {
   const diff = $('difficulty').value;
-  const def = fourKeyDefaults(diff);
-  const saved = (loadSettings().fourKeyGen || {})[diff] || {};
-  $('fkDensity').value = String(saved.density ?? def.density);
-  $('fkSim').value = String(saved.simultaneous ?? def.simultaneous);
-}
-
-function initFourKeyInputs() {
-  const store = () => {
-    const diff = $('difficulty').value;
-    const cur = loadSettings().fourKeyGen || {};
-    const d = Math.round(Math.min(1.6, Math.max(1.0, parseFloat($('fkDensity').value) || 1.0)) * 20) / 20; // 0.05 단위
-    const s = Math.round(Math.min(30, Math.max(0, parseFloat($('fkSim').value) || 0)));
-    $('fkDensity').value = String(d);
-    $('fkSim').value = String(s);
-    // [14] 같은 저장 방식: 기본값과 같은 칸은 저장하지 않는다
-    const def = fourKeyDefaults(diff);
-    const item = {};
-    if (Math.abs(d - def.density) > 1e-9) item.density = d;
-    if (s !== def.simultaneous) item.simultaneous = s;
-    const next = { ...cur };
-    if (Object.keys(item).length) next[diff] = item;
-    else delete next[diff];
-    saveSettings({ fourKeyGen: next });
-  };
-  $('fkDensity').addEventListener('change', store);
-  $('fkSim').addEventListener('change', store);
-  $('difficulty').addEventListener('change', fillFourKeyInputs);
-  fillFourKeyInputs();
-}
-
-// ---------- 비율: 롱노트·연타 입력, 단타는 나머지 자동 (규칙은 ratio_rules.js) ----------
-function initRatios() {
-  const ids = { tap: 'ratioTap', hold: 'ratioHold', burst: 'ratioBurst' };
-  const show = () => {
-    for (const k of RATIO_KEYS) {
-      if (!S.requested) return;
-      $(ids[k]).value = Math.round(S.requested[k]);
-      $(ids[k] + 'Num').value = showRatio(S.requested[k]);
-      $(ids[k] + 'Val').textContent = '적용 ' + showRatio(S.requested[k]) + '%';
-    }
-  };
-  const apply = (k, raw) => {
-    const res = applyRatio(S.requested, k, raw);
-    S.requested = res.requested;
-    $('ratioMsg').textContent = res.note;
-    show();
-  };
-  for (const k of RATIO_KEYS) {
-    if (k === 'tap') continue; // 단타는 자동 계산(읽기 전용)
-    $(ids[k]).addEventListener('input', (e) => apply(k, e.target.value));
-    $(ids[k] + 'Num').addEventListener('change', (e) => apply(k, e.target.value)); // Enter·포커스 이동 때 확정
-    $(ids[k] + 'Num').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+  const saved = optionsFor(diff);
+  const rules = {...thumbRules(diff), ...saved.rules};
+  $('density').value = saved.density ?? 55;
+  $('densityVal').textContent = $('density').value + '%';
+  $('holdAmount').value = saved.amount ?? 2;
+  $('fkSim').max = rules.chord;
+  $('fkSim').value = Math.min(saved.simultaneous ?? rules.chord, rules.chord);
+  const box = $('advRulesBody');
+  box.replaceChildren();
+  for (const field of fields) {
+    const label = document.createElement('label');
+    label.className = 'advrow';
+    label.textContent = field.label;
+    const input = document.createElement('input');
+    Object.assign(input, {type:'number', min:0, max:field.max, step:field.step, value:rules[field.key]});
+    input.addEventListener('change', () => {
+      if (input.reportValidity()) saveOptions(diff, {...optionsFor(diff), rules:{...optionsFor(diff).rules, [field.key]:input.valueAsNumber}});
+      fillGenFields();
+    });
+    label.append(input);
+    box.append(label);
   }
-  show();
-  showRatiosFn = show;
 }
 
-// ---------- 곡 요약과 목록 ----------
-// 상단 바 곡 이름·상태, 음원 카드 제목, 채보 편집 노트 수를 갱신한다 (저장 여부는 기존 변경 표시(S.dirty)를 읽기만 한다)
 function renderSongHeader() {
   const name = S.chart ? (S.chart.song.title || S.song) : '';
   const nameEl = $('songName');
@@ -524,10 +332,6 @@ export function initAnalyzeCard() {
   const keep = det.value;
   det.innerHTML = DETECTOR_ORDER.filter((k) => names[k]).map((k) => `<option value="${k}">${esc(names[k])}</option>`).join('');
   det.value = keep || 'hybrid';
-  const modes = (S.presets && S.presets.lane_modes) || {};
-  const keepLane = $('laneMode').value;
-  $('laneMode').innerHTML = LANE_ORDER.filter((k) => modes[k]).map((k) => `<option value="${k}">${esc(modes[k])}</option>`).join('');
-  $('laneMode').value = keepLane || 'alternate';
   const box = $('presetCards');
   box.innerHTML = '';
   for (const p of (S.presets && S.presets.presets) || []) {
@@ -697,7 +501,7 @@ export function renderHealth() {
     <tr><td>초당 노트 수</td><td>평균 ${h.npsAvg}개 · 최대 ${h.npsMax}개</td></tr>
     <tr><td>${h.lane.length === 4 ? '레인 비율' : '좌·우 비율'} (연타 제외)</td><td>${h.lane.length === 4 ? h.lane.map((v, i) => `${i + 1}레인(${FOUR_KEY_LABELS[i]}) ${lanePct(v)}%`).join(' · ') : `왼쪽 ${lanePct(h.lane[0])}% · 오른쪽 ${lanePct(h.lane[1])}%`}</td></tr>
     <tr><td>노트 종류</td><td>단타 ${h.count.tap}개(${h.percent.tap}%) · 롱노트 ${h.count.hold}개(${h.percent.hold}%) · 연타 ${h.count.burst}개(${h.percent.burst}%)</td></tr>
-    <tr><td>설정한 비율과 비교</td><td>요청 ${req.tap}% / ${req.hold}% / ${req.burst}% → 실제 ${h.percent.tap}% / ${h.percent.hold}% / ${h.percent.burst}%</td></tr>
+
     <tr><td>같은 레인 연속 최대 (연타 제외)</td><td>${h.maxSameLaneRun}개</td></tr>
     <tr><td>전체 노트</td><td>${h.total}개</td></tr></table>`;
   const errors = S.issues.filter((i) => i.level === 'error');
@@ -708,10 +512,29 @@ export function renderHealth() {
   setBadge(errors.length ? 'bad' : warns.length ? 'warn' : 'ok', errors.length, warns.length);
   list.innerHTML = '';
   addLegacyBurstItems(list);
-  for (const i of S.issues.slice(0, 80)) {
+  const counts = new Map();
+  for (const issue of S.issues) counts.set(issue.code, (counts.get(issue.code) || 0) + 1);
+  if (counts.size) {
+    const summary = document.createElement('p');
+    summary.textContent = [...counts].map(([key,count]) => key + ' ' + count + '건').join(' · ');
+    body.append(summary);
+  }
+  if (S.gen?.options_used?.changes?.length) {
+    const details = document.createElement('details');
+    const title = document.createElement('summary');
+    title.textContent = '생성 중 바뀐 노트';
+    details.append(title);
+    for (const change of S.gen.options_used.changes) {
+      const row = document.createElement('div');
+      row.textContent = formatTime(S.map.tickToAudioMs(change.tick)) + ' · ' + change.action;
+      details.append(row);
+    }
+    body.append(details);
+  }
+  for (const i of S.issues) {
     const li = document.createElement('li');
     li.className = i.level === 'error' ? 'error' : 'warn';
-    li.textContent = (i.level === 'error' ? '오류 · ' : '경고 · ') + i.message;
+    li.textContent = (i.level === 'error' ? '오류 · ' : '경고 · ') + i.code + ' · ' + i.message + ' ' + (i.note_ids || []).map(id => '#' + id).join(', ');
     li.title = '눌러서 해당 노트로 이동';
     li.addEventListener('click', () => { if (i.note_ids && i.note_ids.length) focusNote(i.note_ids[0]); });
     list.appendChild(li);

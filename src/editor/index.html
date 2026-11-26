@@ -190,30 +190,20 @@
       </div>
     </section>
     <section class="card cardgen lowcard" data-tab="analyze" id="cardGen">
-      <div class="lbl">노트 생성</div>
+      <div class="lbl">4키 노트 생성</div>
       <div class="cardbody">
-      <label class="field">디자인 모드
-        <select id="designMode">
-          <option value="classic" selected>기존 방식 (설정한 비율·패턴 그대로)</option>
-          <option value="reference">레퍼런스 규칙 (실제 채보 분석 기준 자동 적용)</option>
-          <option value="unified">통합 규칙 (히트러스 규칙 + 레퍼런스 보정)</option>
-        </select>
-        <small class="help" id="designModeHelp">기존 방식: 아래 설정을 그대로 사용합니다.</small>
-      </label>
-      <div class="field unified-only" id="unifiedBox" hidden>
+      <div class="field">
         <small class="help">통합 규칙 설정 — 비워 두면 곡 전체, 난이도 기본 밀도를 씁니다. 노트는 구간 시작 2초 뒤부터 끝 1초 전까지만 놓입니다.</small>
         <div class="row"><label>구간 시작(초) <input id="rangeStart" class="num small" type="number" min="0" step="0.1" placeholder="0"></label>
         <label>구간 끝(초) <input id="rangeEnd" class="num small" type="number" min="0" step="0.1" placeholder="곡 끝"></label></div>
-        <label>목표 초당 노트 수 <input id="targetNps" class="num small" type="number" min="0.3" max="8" step="0.1" placeholder="난이도 기본"></label>
-        <label hidden style="display:none"><input id="allowBurst" type="checkbox" disabled> 연타 넣기 (2.2부터 연타는 만들지 않습니다)</label>
       </div>
       <label class="field">난이도
-        <select id="difficulty"><option value="EASY">쉬움</option><option value="NORMAL" selected>보통</option><option value="HARD">어려움</option></select>
+        <select id="difficulty"><option value="EASY">쉬움</option><option value="NORMAL" selected>보통</option><option value="HARD">어려움</option><option value="GLIITCH">Glitch</option></select>
       </label>
       <label class="field">노트 박자 단위 (격자)
         <select id="gridSelect">
-          <option value="4">4분음표 (한 박에 1개)</option><option value="8">8분음표 (한 박에 2개)</option>
-          <option value="12">8분 셋잇단 (한 박에 3개)</option><option value="16" selected>16분음표 (한 박에 4개)</option>
+          <option value="4">4분음표 (한 박에 1개)</option><option value="8" selected>8분음표 (한 박에 2개)</option>
+          <option value="12">8분 셋잇단 (한 박에 3개)</option><option value="16">16분음표 (한 박에 4개)</option>
           <option value="24">16분 셋잇단 (한 박에 6개)</option><option value="32">32분음표 (한 박에 8개)</option>
           <option value="free">격자 없음</option>
         </select>
@@ -222,44 +212,15 @@
         <div class="slider"><span>적게</span><input id="density" type="range" min="10" max="100" step="5" value="55"><span>많게</span><output id="densityVal">55%</output></div>
         <small class="help">노트 자동 생성 단계 설정입니다. 찾아 둔 지점 중 실제 노트로 만들 개수를 정합니다.</small>
       </label>
-      <label class="field">키 모드
-        <select id="keyModeSelect">
-          <option value="2" selected>2키 (왼쪽·오른쪽)</option>
-          <option value="4">4키 (S D K L)</option>
-        </select>
-        <small class="help" id="keyModeHelp">노트가 하나도 없을 때 바꾸면 바로 적용됩니다. 노트가 있는 채보는 [노트 자동 생성]으로 다시 만들어야 키 모드가 바뀝니다. 4키는 소리 높낮이와 상관없이 레인을 나누고, 같은 위치에는 노트를 최대 2개까지 둡니다.</small>
-      </label>
-      <div class="field" id="fourKeyBox" hidden>
-        <label>4키 노트 양 배율 <input id="fkDensity" class="num small" type="number" min="1.0" max="1.6" step="0.05" value="1.25" aria-label="4키 노트 양 배율"> 배</label>
-        <label>동시 노트 비율 <input id="fkSim" class="num small" type="number" min="0" max="30" step="1" value="5" aria-label="동시 노트 비율"> %</label>
-        <small class="help">4키(양손 엄지) 전용입니다. 노트 양 배율은 2키보다 노트를 얼마나 더 만들지(1.0~1.6), 동시 노트 비율은 양손에 하나씩 동시에 나오는 노트의 양(0~30%)입니다. 난이도를 바꾸면 그 난이도의 값으로 다시 채워지고, 바꾼 값은 이 기기에 저장됩니다.</small>
-      </div>
-      <label class="field classic-only" id="laneModeField">좌·우 버튼 패턴
-        <select id="laneMode"></select>
-        <small class="help" id="laneModeWhy" hidden></small>
-      </label>
-      <label class="field">박자 맞춤 정도
-        <select id="gridTolerance">
+      <label class="field">동시 노트 비율 (%)<input id="fkSim" type="number" min="0" step="1"></label>
+      <label class="field">박자 맞춤 정도<select id="gridTolerance">
           <option value="strict" selected>엄격 (기본)</option>
           <option value="normal">보통</option>
           <option value="loose">느슨</option>
         </select>
         <small class="help">느슨하게 하면 노트가 늘어나지만, 소리와 노트가 조금 어긋날 수 있습니다.</small>
       </label>
-      <div class="field">노트 종류 비율 (합계 100%) <small class="ruletag" id="tagRatios" hidden>규칙 기본값</small>
-        <small class="help">곡에 만들 노트 중 롱노트의 비중입니다. 롱노트는 입력한 값 그대로 쓰고(슬라이더 1% 단위, 숫자는 소수 첫째 자리까지 입력 후 Enter), 단타는 나머지(100 − 롱노트)로 자동 계산됩니다. 연타노트는 더 이상 만들지 않습니다.</small>
-        <div class="ratio"><span class="chip tap">단타</span><input id="ratioTap" type="range" min="0" max="100" step="1" value="70" disabled aria-label="단타 비율 (자동)"><input id="ratioTapNum" class="num small" type="number" readonly tabindex="-1" min="0" max="100" step="0.1" value="70" aria-label="tap 비율 직접 입력">%<output id="ratioTapVal">적용 70%</output><small class="auto">자동</small></div>
-        <div class="ratio"><span class="chip hold">롱노트</span><input id="ratioHold" type="range" min="0" max="100" step="1" value="20"><input id="ratioHoldNum" class="num small" type="number" min="0" max="100" step="0.1" value="20" aria-label="hold 비율 직접 입력">%<output id="ratioHoldVal">적용 20%</output></div>
-        <div class="ratio" hidden style="display:none"><span class="chip burst">연타</span><input id="ratioBurst" type="range" min="0" max="100" step="1" value="10"><input id="ratioBurstNum" class="num small" type="number" min="0" max="100" step="0.1" value="10" aria-label="burst 비율 직접 입력">%<output id="ratioBurstVal">적용 10%</output></div>
-        <small class="help" id="ratioMsg" role="status"></small>
-      </div>
-      <label class="field">롱노트 기본 길이 (박) <small class="ruletag" id="tagHold" hidden>규칙 기본값</small>
-        <input id="holdBeats" class="num" type="number" min="0.25" max="16" step="0.25" value="1">
-      </label>
-      <div class="field" hidden style="display:none">연타 기본 횟수 (3~100) <small class="ruletag" id="tagBurst" hidden>규칙 기본값</small>
-        <small class="help">한 번에 연타할 횟수입니다. 연타 길이는 노트가 몰린 정도에 맞춰 정해집니다 (예: 1박에 노트 4개 → 8회는 2박).</small>
-        <div class="slider"><input id="burstRange" type="range" min="3" max="100" step="1" value="8"><input id="burstNum" class="num small" type="number" min="3" max="100" step="1" value="8"></div>
-      </div>
+      <label class="field">롱노트 양<select id="holdAmount"><option value="0">없음</option><option value="1">적게</option><option value="2" selected>보통</option><option value="3">많게</option></select></label>
       <div class="field">
         <div class="row"><button id="btnGenReset" type="button" class="sm">규칙 기본값으로 되돌리기</button><small class="help" id="genResetMsg" role="status"></small></div>
         <details id="advRules">
