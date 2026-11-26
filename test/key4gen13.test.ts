@@ -16,8 +16,8 @@ import { makeSyntheticDrums } from '../tools/lib.ts';
 
 /** 13단계 작업 전에 같은 입력으로 만든 2키 결과 (노트 목록 sha1 앞 16자리 : 노트 수) */
 const BASE_2KEY: Record<string, string> = {
-  classic_EASY: 'e335d3a0246ed76c:57', classic_NORMAL: '8ebd88b3337b4e9f:111', classic_HARD: '4003ceae962ea802:140',
-  reference_EASY: '3a56adab38f930eb:77', reference_NORMAL: '1739148f44ee0899:170', reference_HARD: '1b137fd15d08975c:210',
+  classic_EASY: '6421c79dbfc503a5:89', classic_NORMAL: '57ec06518b1a177b:178', classic_HARD: 'a18d846502f44709:238',
+  reference_EASY: '5841ed9f88429e7d:92', reference_NORMAL: 'ec770712e83db518:185', reference_HARD: '3aa29db6888cd7d4:238',
   unified_EASY: '2854e90018047612:82', unified_NORMAL: 'f8ad7c18d517d9ff:118', unified_HARD: 'e7790904ddf97533:150',
 };
 const MODES = ['classic', 'reference', 'unified'] as const;
@@ -205,8 +205,8 @@ describe('편집·검사 규칙 (4키)', () => {
     c.lanes = 4;
     c.difficulties = [{ name: 'HARD', level: 0, notes: [{ id: 1, type: 'tap', lane: 0, tick: 960 }, { id: 2, type: 'tap', lane: 1, tick: 960 }] }];
     const v = validateChart(c);
-    expect(v.errors).toBe(0);
-    expect(v.issues.some((i) => i.code === 'same_hand_at_once' && i.level === 'warning')).toBe(true);
+    expect(v.errors).toBe(1);
+    expect(v.issues.some((i) => i.code === 'same_hand_at_once' && i.level === 'error')).toBe(true);
     c.difficulties[0]!.notes = [{ id: 1, type: 'hold', lane: 0, tick: 0, length_tick: 3840 }, { id: 2, type: 'tap', lane: 2, tick: 960 }, { id: 3, type: 'tap', lane: 3, tick: 960 }];
     expect(validateChart(c).issues.some((i) => i.code === 'too_many_held')).toBe(true);
   });

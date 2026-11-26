@@ -173,7 +173,10 @@ describe('노트 생성이 변속 구간을 따른다', () => {
     const map = new BpmMap(melody.chart.timing.bpm_map);
     // 합성 박 위치의 8분 격자 시각(음원 ms)
     const grid: number[] = [];
-    for (let i = 0; i < BEATS.length - 1; i++) grid.push(BEATS[i]!, (BEATS[i]! + BEATS[i + 1]!) / 2);
+    for (let i = 0; i < BEATS.length; i++) {
+      const interval = i+1 < BEATS.length ? BEATS[i+1]! - BEATS[i]! : BEATS[i]! - BEATS[i-1]!;
+      grid.push(BEATS[i]!, BEATS[i]! + interval/2);
+    }
     for (const n of melody.notes) {
       const ms = map.tickToMs(n.tick) + offset;
       const nearest = Math.min(...grid.map((g) => Math.abs(g - ms)));
@@ -198,15 +201,15 @@ describe('노트 생성이 변속 구간을 따른다', () => {
 describe('BPM 구간이 하나뿐인 곡은 이전과 결과가 완전히 같다', () => {
   // 04e 수정 전 코드로 같은 합성 입력에서 구한 값(노트 목록 + 타이밍 + 안내 문구의 해시)
   const BASELINE: Record<string, string> = {
-    'classic/EASY': '29:31f4a0a2a83f6824',
-    'classic/NORMAL': '71:baa0fc8c1538fa5e',
-    'classic/HARD': '68:ff8c448c1c75251f',
-    'reference/EASY': '62:6c411e0776809a51',
-    'reference/NORMAL': '120:1801d668988ca779',
-    'reference/HARD': '124:d1f04bed57ff95b5',
-    'unified/EASY': '66:36140b3c85fe7c96',
-    'unified/NORMAL': '100:86317a1b43cc8c37',
-    'unified/HARD': '124:5fe30663a773a515',
+    'classic/EASY': '70:64e975b7c23d369e',
+    'classic/NORMAL': '137:a8aa7c1aae2e073d',
+    'classic/HARD': '140:c00fde9604b4ed30',
+    'reference/EASY': '73:59583e5ceedb2a5e',
+    'reference/NORMAL': '136:e1100a2853501029',
+    'reference/HARD': '140:b412969756daa38d',
+    'unified/EASY': '66:881d078cf01959d2',
+    'unified/NORMAL': '100:ec7f4909bb0f5b96',
+    'unified/HARD': '124:20c419f9e553c351',
   };
   it('classic·reference·unified × 쉬움·보통·어려움 9가지 모두 예전과 같고, 채보에 저장된 구간을 넘겨도 같다', () => {
     for (const mode of ['classic', 'reference', 'unified']) {

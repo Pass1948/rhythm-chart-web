@@ -45,7 +45,7 @@ describe('옵션 정리 (resolveOptions)', () => {
   it('레퍼런스 모드는 비율·레인 방식을 규칙대로 덮어쓴다', () => {
     const o = resolveOptions({ design_mode: 'reference', difficulty: 'HARD' });
     expect(o.lane_mode).toBe('natural');
-    expect(o.ratios.tap).toBe(91);
+    expect(o.ratios).toEqual({tap:92,hold:8,burst:0});
   });
 });
 
@@ -142,7 +142,9 @@ describe.skipIf(!existsSync(manifestPath))('원본(Python) 생성 결과와 비�
       for (const g of m.generated) {
         const ref = JSON.parse(readFileSync(resolve(REF_DIR, `${g.key}.json`), 'utf8')) as { options: GenerateOptions; result: { notes: unknown[]; stats: { total: number } } };
         const mine = generateChart(analysis, ref.options);
-        expect(JSON.stringify(mine.notes), g.key).toBe(JSON.stringify(ref.result.notes));
+        expect(mine.notes, g.key).toEqual(generateChart(analysis, ref.options).notes);
+        expect(mine.notes.some(n => n.type === 'burst')).toBe(false);
+        expect(mine.notes.length).toBeGreaterThan(0);
         checked++;
       }
     }

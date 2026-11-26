@@ -2,15 +2,13 @@
  * 채보 검증. 결과는 오류(내보내기 차단)와 경고(내보내기 가능)로 나뉜다. 메시지는 쉬운 한국어.
  * 원본: app\core\validate.py (같은 규칙·같은 코드 이름·같은 메시지)
  */
+import { thumbRules, thumbIssues } from '../generate/rules.ts';
 import { loadValidateConfig } from './config.ts';
 import type { ValidateConfig } from './config.ts';
 import {
   BURST_MAX_COUNT,
   BURST_MIN_COUNT,
   DECODER_DELAY_LIMIT_MS,
-  FOUR_KEY_MAX_HELD,
-  FOUR_KEY_MAX_SIMULTANEOUS,
-  fourKeyHand,
   KEY_MODES,
   LANE_BOTH,
   NOTE_BURST,
@@ -315,36 +313,10 @@ function validateDifficulty(diff: Difficulty, bpmMap: BpmMap | null, offset: num
   if (km === 2 && single.length >= 10 && (simultaneous * 2) / single.length > cfg.max_simultaneous_ratio) {
     add(WARNING, 'too_many_simultaneous', `양쪽 레인 동시 입력이 너무 많습니다 (전체 노트의 ${Math.round((simultaneous * 2 * 100) / single.length)}%).`);
   }
-  if (km === 4) validateFourKeyHeld(valid, add);
+  if (km === 4 && bpmMap) {
+    for (const i of thumbIssues(valid, bpmMap, offset, thumbRules(name))) add(i.level,i.code,i.message,i.note_ids);
+  }
   return issues;
-}
-
-/**
- * [10단계] 4키 동시 입력 규칙: 같은 시각(같은 틱)에 시작하는 노트는 최대 2개, 롱노트 유지 + 새로 시작하는 노트는 합쳐 최대 3개.
- * (연타노트는 구간 안에 다른 노트가 없으므로 여기서 다루지 않는다.)
- */
-function validateFourKeyHeld(valid: ChartNote[], add: (level: string, code: string, msg: string, ids?: number[]) => void): void {
-  const singles = valid.filter((n) => typeof n.lane === 'number');
-  const byTick = new Map<number, ChartNote[]>();
-  for (const n of singles) {
-    const g = byTick.get(n.tick);
-    if (g) g.push(n);
-    else byTick.set(n.tick, [n]);
-  }
-  for (const [tick, g] of [...byTick].sort((a, b) => a[0] - b[0])) {
-    if (g.length > FOUR_KEY_MAX_SIMULTANEOUS) {
-      add(ERROR, 'too_many_at_once', `같은 위치에 노트가 ${g.length}개 겹쳐 있습니다. 4키에서는 동시에 최대 ${FOUR_KEY_MAX_SIMULTANEOUS}개까지입니다: ${idsText(g.map((x) => x.id))}`, g.map((x) => x.id));
-      continue;
-    }
-    if (g.length === 2 && fourKeyHand(g[0]!.lane as number) === fourKeyHand(g[1]!.lane as number)) {
-      add(WARNING, 'same_hand_at_once', `같은 손(${fourKeyHand(g[0]!.lane as number) === 0 ? '왼손 S·D' : '오른손 K·L'})의 두 레인이 같은 위치에 있습니다. 양손 엄지로 치기 어려우니 다른 손 레인으로 옮겨 보세요: ${idsText(g.map((x) => x.id))}`, g.map((x) => x.id));
-    }
-    const held = singles.filter((o) => o.type === NOTE_HOLD && o.tick < tick && o.tick + (o.length_tick as number) > tick);
-    if (held.length + g.length > FOUR_KEY_MAX_HELD) {
-      const ids = [...held, ...g].map((x) => x.id);
-      add(ERROR, 'too_many_held', `롱노트를 누르는 동안 동시에 눌러야 하는 노트가 ${held.length + g.length}개입니다. 4키에서는 최대 ${FOUR_KEY_MAX_HELD}개까지입니다: ${idsText(ids)}`, ids);
-    }
-  }
 }
 
 /** 같은 레인이 연속된 묶음이 기준 이상이면 경고. */

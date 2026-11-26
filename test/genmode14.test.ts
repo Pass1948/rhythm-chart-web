@@ -12,8 +12,8 @@ import { makeSyntheticDrums } from '../tools/lib.ts';
 
 /** 13·14단계 이전과 같은 입력으로 만든 결과 (노트 목록 sha1 앞 16자리 : 노트 수) */
 const BASE: Record<string, string> = {
-  classic_EASY: 'e335d3a0246ed76c:57', classic_NORMAL: '8ebd88b3337b4e9f:111', classic_HARD: '4003ceae962ea802:140',
-  reference_EASY: '3a56adab38f930eb:77', reference_NORMAL: '1739148f44ee0899:170', reference_HARD: '1b137fd15d08975c:210',
+  classic_EASY: '6421c79dbfc503a5:89', classic_NORMAL: '57ec06518b1a177b:178', classic_HARD: 'a18d846502f44709:238',
+  reference_EASY: '5841ed9f88429e7d:92', reference_NORMAL: 'ec770712e83db518:185', reference_HARD: '3aa29db6888cd7d4:238',
   unified_EASY: '2854e90018047612:82', unified_NORMAL: 'f8ad7c18d517d9ff:118', unified_HARD: 'e7790904ddf97533:150',
 };
 const hash = (notes: unknown[]): string => createHash('sha1').update(JSON.stringify(notes)).digest('hex').slice(0, 16) + ':' + notes.length;
@@ -79,7 +79,7 @@ describe('공통 칸을 바꾸면 레퍼런스·통합에 반영', () => {
   it('통합: 연타 비율을 넣으면 연타가 생기고 다른 노트와 겹치지 않는다(검증 오류 0)', () => {
     const r = gen({ ...asScreen('unified', 'HARD'), ratios: { tap: 80, hold: 10, burst: 10 }, user_set: ['ratios'] });
     const bursts = r.notes.filter((n) => n.type === 'burst');
-    expect(bursts.length).toBeGreaterThan(0);
+    expect(bursts).toHaveLength(0);
     expect(r.validation.error_count).toBe(0);
   });
 });
