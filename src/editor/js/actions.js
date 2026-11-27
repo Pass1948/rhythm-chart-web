@@ -547,10 +547,10 @@ export function startPaste(flip = false) {
   if (!S.chart) return;
   if (!S.clip) return status('복사한 노트가 없습니다. 노트를 여러 개 끌어서 선택한 뒤 Ctrl+C 로 복사하세요.', 'warn');
   S.selectedIds = [];
-  S.paste = { flip };
+  S.paste = { flip, keyboardLane: null };
   emit('select');
   emit('paste');
-  status('붙여넣을 위치에 마우스를 두고 클릭하세요. (Esc: 취소, 파란색=붙일 수 있음, 붉은색=붙일 수 없음)');
+  status('마우스로 레인과 시간을 고르세요. ←/→로 한 레인씩 옮길 수 있습니다. 클릭하거나 손을 떼면 붙이고, Esc로 취소합니다.');
 }
 
 export function cancelPaste() {
@@ -567,9 +567,9 @@ export function togglePasteFlip() {
 }
 
 // 클릭한 위치(anchorTick)에 붙여넣기를 확정한다. 전체 성공 또는 전체 취소. 붙은 노트가 선택되고 Undo 한 번으로 전부 되돌려진다.
-export function confirmPaste(anchorTick) {
+export function confirmPaste(anchorTick, targetLane) {
   if (!S.paste || !S.clip) return false;
-  const r = tryPaste(notes(), S.clip, anchorTick, maxTick(), S.paste.flip);
+  const r = tryPaste(notes(), S.clip, anchorTick, maxTick(), S.paste.flip, targetLane);
   if (!r.ok) {
     status(r.reason, 'warn');
     return false;

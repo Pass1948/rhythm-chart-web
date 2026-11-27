@@ -6,7 +6,7 @@ import { barHeight, circleRadius, longHitHalfW, noteDrawWidth, tapHit, tapOutlin
 import { fillWavePixels, stripWidth, waveColors } from './wave_strip.js';
 import { theme } from './theme.js';
 import { fmtBpm, moveTempoSection } from './tempo.js';
-import { flipClip, tryPaste } from './edit_rules.js';
+import { pasteLayout, tryPaste } from './edit_rules.js';
 import { confirmPaste } from './actions.js';
 import { addTapAt, applyDragPatch, applyGroupMove, createDrag, finishCreateNote, movePatch, resizeEndPatch, resizeStartPatch } from './note_ops.js';
 import { S, commit, durationMs, emit, keyMode, on, gridStep, maxTick, notes, select, setNotes, setSelection, snapshot, status } from './state.js';
@@ -199,9 +199,14 @@ export class VerticalEditor {
   // ---------- 마우스 조작 ----------
   onDown(e) {
     if (e.button !== 0 || !S.chart) return;
-    this.canvas.setPointerCapture(e.pointerId);
     const x = e.offsetX;
     const y = e.offsetY;
+    if (S.paste && this.laneOfX(x) >= 0) {
+      this.pasteHover = { x, y, shift: e.shiftKey };
+      confirmPaste(this.pasteTick(), this.pasteTargetLane());
+      return;
+    }
+    this.canvas.setPointerCapture(e.pointerId);
     if (!S.paste && e.pointerType !== 'touch') {
       const th = this.tempoHitAt(x, y);
       if (th) {
@@ -209,12 +214,6 @@ export class VerticalEditor {
         this.drag = { mode: 'tempo', index: th.index, orig: S.map.rows[th.index].tick, tick: S.map.rows[th.index].tick, changed: false };
         return;
       }
-    }
-    if (S.paste && x >= GUTTER && x <= this.right) {
-      // 붙여넣기 미리보기 중: 클릭하면 그 자리에 붙인다 (안 되는 자리면 이유를 알리고 모드는 유지)
-      this.pasteHover = { x, y, shift: e.shiftKey };
-      confirmPaste(this.pasteTick());
-      return;
     }
     if (x < GUTTER || x > this.right) {
       this.hooks.seek(this.msOfY(y)); // 왼쪽 시간 눈금(또는 오른쪽 파형 띠): 재생 위치 이동
@@ -261,8 +260,9 @@ export class VerticalEditor {
 
   onMove(e) {
     if (!S.chart) return;
+    this.pasteHover = this.laneOfX(e.offsetX) >= 0 ? { x: e.offsetX, y: e.offsetY, shift: e.shiftKey } : null;
     if (S.paste) {
-      this.pasteHover = e.offsetX >= GUTTER && e.offsetX <= this.right ? { x: e.offsetX, y: e.offsetY, shift: e.shiftKey } : null;
+      S.paste.keyboardLane = null;
       this.canvas.style.cursor = 'copy';
       return;
     }
@@ -344,6 +344,17 @@ export class VerticalEditor {
     return Math.max(0, h.shift ? Math.round(raw) : snapTick(raw, gridStep()));
   }
 
+  pasteTargetLane() {
+    return S.paste.keyboardLane ?? (this.pasteHover ? this.laneOfX(this.pasteHover.x) : null);
+  }
+
+  nudgePasteLane(direction) {
+    const { flip } = S.paste;
+    const { anchorLane } = pasteLayout(S.clip, flip, this.pasteTargetLane());
+    if (anchorLane === null) return;
+    S.paste.keyboardLane = pasteLayout(S.clip, flip, anchorLane + direction).anchorLane;
+  }
+
   // 미리보기 중 편집기 위·아래 끝에 마우스가 닿으면 자동 스크롤한다
   pasteAutoScroll() {
     const h = this.pasteHover;
@@ -359,23 +370,23 @@ export class VerticalEditor {
   }
 
   // 붙일 수 있는지 계산 (같은 위치·같은 설정이면 다시 계산하지 않는다)
-  pasteResult(tick) {
-    const key = `${tick}|${S.paste.flip}`;
+  pasteResult(tick, targetLane) {
+    const key = `${tick}|${S.paste.flip}|${targetLane}`;
     if (!this.pasteCache || this.pasteCache.key !== key) {
-      const r = tryPaste(notes(), S.clip, tick, maxTick(), S.paste.flip);
-      this.pasteCache = { key, r };
+      const r = tryPaste(notes(), S.clip, tick, maxTick(), S.paste.flip, targetLane);
+      const { items } = pasteLayout(S.clip, S.paste.flip, targetLane);
+      this.pasteCache = { key, r, items };
       if (!r.ok && r.reason !== this.lastPasteReason) status(r.reason);
       this.lastPasteReason = r.ok ? '' : r.reason;
     }
-    return this.pasteCache.r;
+    return this.pasteCache;
   }
 
   // 반투명 미리보기: 붙일 수 있으면 파랑, 없으면 붉은색 + 이유
   drawPaste(c) {
     if (!S.paste || !S.clip || !this.pasteHover) return;
     const tick = this.pasteTick();
-    const r = this.pasteResult(tick);
-    const items = (S.paste.flip ? flipClip(S.clip) : S.clip).items;
+    const { r, items } = this.pasteResult(tick, this.pasteTargetLane());
     const ok = r.ok;
     c.save();
     for (const it of items) {

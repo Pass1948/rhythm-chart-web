@@ -128,7 +128,7 @@ export async function initTouchEdit(isTouchLayout: () => boolean): Promise<Touch
   const selBar = document.getElementById('selBar');
   const buttons: { label: string; title: string; run: () => void; danger?: boolean; id: string }[] = [
     { id: 'tbCopy', label: '복사', title: '선택한 노트를 복사 (Ctrl+C)', run: () => actions.copySelected() },
-    { id: 'tbPaste', label: '붙여넣기', title: '붙일 위치를 손가락으로 끌어 놓고 떼세요 (Ctrl+V)', run: () => actions.startPaste(false) },
+    { id: 'tbPaste', label: '붙여넣기', title: '붙일 레인과 시간을 손가락으로 고르고 손을 떼세요 (Ctrl+V)', run: () => actions.startPaste(false) },
     { id: 'tbPasteFlip', label: '반전 붙여넣기', title: '좌우를 뒤집어 붙이기 (Shift+Ctrl+V)', run: () => actions.startPaste(true) },
     { id: 'tbDelete', label: '삭제', title: '선택한 노트 삭제 (Delete)', run: () => actions.deleteSelected(), danger: true },
     { id: 'tbUndo', label: '되돌리기', title: '되돌리기 (Ctrl+Z)', run: () => actions.undoAction() },
@@ -330,21 +330,19 @@ export async function initTouchEdit(isTouchLayout: () => boolean): Promise<Touch
       if (was === 'vdrag' && v) abortVerticalDrag();
       return;
     }
+    if (S.paste && (was === 'vdrag' || was === 'pending')) {
+      // 마지막 이동 이벤트와 손을 뗀 위치가 다를 수 있다.
+      const event = fake({ ...f, ...localPoint(e) }, e.pointerId);
+      v.onMove(event);
+      v.onDown(event);
+      return;
+    }
     if (was === 'vdrag') {
-      // 붙여넣기 미리보기 중이었다면 손을 뗀 자리에 붙인다
-      if (S.paste) {
-        v.onMove(fake(f, e.pointerId));
-        v.onDown(fake(f, e.pointerId));
-      } else void v.onUp(fake(f, e.pointerId));
+      void v.onUp(fake(f, e.pointerId));
       return;
     }
     if (was === 'pending') {
       // 움직이지 않고 뗐다 = 탭
-      if (S.paste) {
-        v.onMove(fake(f, e.pointerId));
-        v.onDown(fake(f, e.pointerId));
-        return;
-      }
       if (eraser) {
         const hit = v.hitTest(f.x, f.y);
         if (hit) {

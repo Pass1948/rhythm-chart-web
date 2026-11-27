@@ -20,7 +20,7 @@ export const S = {
   map: new BpmMap([{ tick: 0, bpm: 120, beats_per_bar: 4, beat_unit: 4 }], 0),
   tool: 'select',      // select / tap / hold (2.2: 연타 도구 삭제)
   clip: null,          // 복사 보관함 (프로그램 안에서만 유지, 곡을 바꾸면 비운다)
-  paste: null,         // 붙여넣기 미리보기 모드일 때 {flip}
+  paste: null,         // 붙여넣기 미리보기 모드일 때 {flip, keyboardLane}
   selectedIds: [],     // 선택된 노트 id 목록 (드래그·Shift 로 여러 개 선택)
   dirty: false,
   gridDiv: 8,         // 격자(마디를 몇 칸으로 나눌지), 'tenth'는 0.1박, 'free'는 격자 없음

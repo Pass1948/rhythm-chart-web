@@ -1,7 +1,7 @@
 // 4키 편집, 레인 이동·뒤집기, 음원 카드 판정
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error 편집기 JS 모듈(타입 선언 없음)
-import { flipClip, healthStats, makeClip, setKeyMode, swapLane, tryAdd, tryMoveGroup, tryPaste, tryUpdate, idsInArea, laneText } from '../src/editor/js/edit_rules.js';
+import { flipClip, healthStats, makeClip, pasteLayout, setKeyMode, swapLane, tryAdd, tryMoveGroup, tryPaste, tryUpdate, idsInArea, laneText } from '../src/editor/js/edit_rules.js';
 // @ts-expect-error 편집기 JS 모듈
 import { hitNote, inLaneArea, laneAtY, layoutFor, marqueeArea } from '../src/editor/js/timeline_rules.js';
 // @ts-expect-error 편집기 JS 모듈
@@ -76,6 +76,48 @@ describe('④ 4키 편집 규칙', () => {
     expect(laneText(2)).toBe('3레인(K)');
     expect(noteDrawWidth({ type: 'burst' }, 50, 'circle', 4)).toBe(184);
     expect(noteDrawWidth({ type: 'burst' }, 50, 'circle')).toBe(84);
+  });
+});
+
+describe('묶음 붙여넣기 레인', () => {
+  const clip = () => makeClip([hold(1, 2, 960, 480), tap(2, 0, 1440)], [1, 2]);
+
+  it('첫 노트가 오른쪽에 있어도 가장 왼쪽 레인을 기준으로 묶음을 옮기고 끝에서 멈춘다', () => {
+    setKeyMode(4);
+    const copied = clip();
+    expect(pasteLayout(copied, false, -1).anchorLane).toBe(0);
+    expect(pasteLayout(copied, false, 3).anchorLane).toBe(1);
+    expect(tryPaste([], copied, 1920, null, false, 3)).toEqual({
+      ok: true, notes: [hold(1, 3, 1920, 480), tap(2, 1, 2400)], ids: [1, 2],
+    });
+    expect(copied.items.map((n: { lane: number }) => n.lane)).toEqual([2, 0]);
+  });
+
+  it('반전한 다음 레인을 옮기며 미리보기와 실제 노트의 레인이 일치한다', () => {
+    setKeyMode(4);
+    const copied = clip();
+    const layout = pasteLayout(copied, true, 0);
+    expect(layout).toEqual({
+      anchorLane: 0,
+      items: [{ type: 'hold', lane: 0, rel: 0, length_tick: 480 }, { type: 'tap', lane: 2, rel: 480 }],
+    });
+    expect(tryPaste([], copied, 1920, null, true, 0).notes).toEqual([hold(1, 0, 1920, 480), tap(2, 2, 2400)]);
+  });
+
+  it('2키에서 한 레인 묶음은 옮길 수 있고 양 레인을 쓰는 묶음은 제자리에 놓인다', () => {
+    const original = [tap(1, 0, 0), tap(2, 1, 480)];
+    expect(tryPaste([], makeClip(original, [1]), 960, null, false, 1).notes).toEqual([tap(1, 1, 960)]);
+    expect(tryPaste([], makeClip(original, [1, 2]), 960, null, false, 1).notes).toEqual([tap(1, 0, 960), tap(2, 1, 1440)]);
+  });
+
+  it('옮긴 자리의 겹침은 기존 편집 정책대로 허용하고 곡 끝을 넘기면 묶음 전체를 거부한다', () => {
+    setKeyMode(4);
+    const notes = [tap(3, 3, 1920)];
+    expect(tryPaste(notes, clip(), 1920, 2400, false, 1).notes).toEqual([
+      tap(3, 3, 1920), hold(4, 3, 1920, 480), tap(5, 1, 2400),
+    ]);
+    expect(tryPaste(notes, clip(), 1920, 2399, false, 1)).toMatchObject({ ok: false });
+    expect(notes).toEqual([tap(3, 3, 1920)]);
   });
 });
 

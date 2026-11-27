@@ -595,7 +595,7 @@ export function renderSelected() {
   if (S.paste && S.clip) {
     // 붙여넣기 미리보기 모드
     box.className = '';
-    box.innerHTML = `<div class="help"><b>붙여넣기 중</b> · 노트 ${S.clip.items.length}개 · 편집기에서 위치를 고르고 클릭하면 붙습니다. 빨간 점선이면 붙일 수 없는 자리입니다. (Esc: 취소)</div>
+    box.innerHTML = `<div class="help"><b>붙여넣기 중</b> · 노트 ${S.clip.items.length}개 · 묶음의 가장 왼쪽 노트가 가리킨 레인을 따릅니다. ←/→로 한 칸씩 옮기고, 클릭하거나 손을 떼면 붙습니다. 빨간 점선이면 붙일 수 없는 자리입니다. (Esc: 취소)</div>
       <div class="row"><button id="pasteFlip" type="button" class="sm">좌우 반전: ${S.paste.flip ? '켜짐' : '꺼짐'}</button><button id="pasteCancel" type="button" class="sm">취소</button></div>`;
     $('pasteFlip').addEventListener('click', togglePasteFlip);
     $('pasteCancel').addEventListener('click', cancelPaste);

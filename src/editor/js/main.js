@@ -234,6 +234,12 @@ function bindHotkeys() {
     const typing = t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(t.type));
     if (typing || document.querySelector('dialog[open]')) return;
     const ctrl = e.ctrlKey || e.metaKey;
+    if (S.paste && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+      if (e.defaultPrevented || ctrl || e.altKey || e.shiftKey || t.closest('input, select, [contenteditable]')) return;
+      e.preventDefault();
+      A.vertical.nudgePasteLane(e.code === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
     if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
       if (e.defaultPrevented || ctrl || e.altKey || e.shiftKey || !S.selectedIds.length ||
           t.closest('input, select, [contenteditable], [role="menu"], [role="menuitem"], [aria-haspopup]')) return;

@@ -345,11 +345,26 @@ export function flipClip(clip) {
   return { ...clip, items: clip.items.map((it) => (isNoteLane(it.lane) ? { ...it, lane: flipLane(it.lane) } : { ...it })) };
 }
 
+// 반전한 묶음의 가장 왼쪽 노트를 기준 레인에 맞춘다. 모든 노트의 레인 간격을 유지한다.
+export function pasteLayout(clip, flip = false, targetLane = null) {
+  const items = (flip ? flipClip(clip) : clip).items;
+  const lanes = items.filter((it) => isNoteLane(it.lane)).map((it) => it.lane);
+  if (!lanes.length) return { items, anchorLane: null };
+  const left = Math.min(...lanes);
+  const right = Math.max(...lanes);
+  const anchorLane = Math.max(0, Math.min(activeKeyMode - 1 - (right - left), targetLane ?? left));
+  const delta = anchorLane - left;
+  return {
+    anchorLane,
+    items: delta ? items.map((it) => isNoteLane(it.lane) ? { ...it, lane: it.lane + delta } : it) : items,
+  };
+}
+
 // 붙여넣기: 기준점을 anchorTick 에 두고 보관함의 노트를 모두 놓는다. **전체 성공 또는 전체 취소**.
 // 성공: {ok:true, notes, ids(새로 붙은 노트 id 목록)}, 실패: {ok:false, reason}
-export function tryPaste(notes, clip, anchorTick, maxTick = null, flip = false) {
+export function tryPaste(notes, clip, anchorTick, maxTick = null, flip = false, targetLane = null) {
   if (!clip || !clip.items.length) return { ok: false, reason: '복사한 노트가 없습니다. 먼저 노트를 선택해 Ctrl+C 로 복사해 주세요.' };
-  const items = (flip ? flipClip(clip) : clip).items;
+  const { items } = pasteLayout(clip, flip, targetLane);
   let base = [...notes];
   const ids = [];
   for (const it of items) {

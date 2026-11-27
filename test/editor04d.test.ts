@@ -67,6 +67,7 @@ describe('편집 도움말', () => {
     const codeOf: Record<string, string> = {
       Space: "'Space'", Z: "'KeyZ'", Y: "'KeyY'", A: "'KeyA'", C: "'KeyC'", X: "'KeyX'", V: "'KeyV'", S: "'KeyS'", M: "'KeyM'",
       Delete: "'Delete'", Backspace: "'Backspace'", Esc: "'Escape'", '↑': "'ArrowUp'", '↓': "'ArrowDown'", '[': "'BracketLeft'", ']': "'BracketRight'",
+      '←': "'ArrowLeft'", '→': "'ArrowRight'",
     };
     for (const row of HELP_KEYS as { keys: string[][] }[]) {
       for (const combo of row.keys) {
