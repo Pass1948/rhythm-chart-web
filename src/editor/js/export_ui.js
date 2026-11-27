@@ -2,8 +2,29 @@
 // [저장]을 누르면 api.saveExportFile 이 downloads → showSaveFilePicker → <a download> 순서로 실제 저장을 시작한다.
 // 폰(터치 기기 또는 폭 < 1024px)에서는 "이 파일을 휴대폰에 다운로드할까요?" 문구를 쓴다.
 import { cleanFileName, formatBytes, isPhoneLike, savePrompt } from '../../storage/saveFiles.ts';
+import { emptyDifficultyWarning } from './export_rules.ts';
 
 const $ = (id) => document.getElementById(id);
+
+export function confirmChartExport(what, chart) {
+  const counts = emptyDifficultyWarning(what, chart);
+  if (!counts) return true;
+
+  const dlg = $('emptyExportDialog');
+  $('emptyExportNote').textContent = what === 'unity'
+    ? '유니티 묶음에는 노트가 있는 난이도만 담깁니다. 그래도 내보낼까요?'
+    : '노트가 없는 난이도가 있습니다. 그래도 내보낼까요?';
+  $('emptyExportCounts').replaceChildren(...counts.map(({ name, count }) => {
+    const li = document.createElement('li');
+    li.textContent = `${name} · 노트 ${count}개${count === 0 ? ' (비어 있음)' : ''}`;
+    return li;
+  }));
+  dlg.returnValue = '';
+  dlg.showModal();
+  return new Promise((resolve) => {
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
+  });
+}
 
 // 지금 화면이 폰 문구를 써야 하는지
 export function phoneNow() {

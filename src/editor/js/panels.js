@@ -157,8 +157,10 @@ export function initPanels() {
   initUnityLinkUi();
   $('exportForm').addEventListener('submit', (e) => {
     if (e.submitter && e.submitter.value === 'ok') {
+      e.preventDefault();
       const what = document.querySelector('input[name=what]:checked').value;
       const kind = document.querySelector('input[name=kind]:checked').value;
+      $('dlgExport').close();
       exportChart(what, kind, $('exportSplit').checked);
     }
   });

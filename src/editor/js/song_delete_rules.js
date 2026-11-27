@@ -3,7 +3,7 @@
 export const TRASH_FOLDER = '이 기기의 휴지통';
 export const OPEN_SONG_BLOCKED = '지금 열려 있는 곡은 지울 수 없습니다. 다른 곡을 연 뒤에 지워 주세요.';
 export const BUSY_SONG_BLOCKED = '분석이 끝나거나 취소된 뒤에 지울 수 있습니다.';
-export const DELETE_NOTE = `이 곡의 분석 결과와 편집한 채보가 목록에서 사라집니다. 완전히 삭제되지는 않고 ${TRASH_FOLDER}으로 옮겨지며, 지운 직후 나타나는 [되돌리기]로 바로 되돌릴 수 있습니다.`;
+export const DELETE_NOTE = `이 곡의 분석 결과와 편집한 채보를 ${TRASH_FOLDER}으로 옮깁니다. 지운 직후에는 [되돌리기]로, 나중에는 [휴지통]에서 복구할 수 있습니다.`;
 
 // 화면에 보일 곡 이름
 export function songTitle(song) {

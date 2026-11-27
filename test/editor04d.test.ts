@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { buildSampleChart } from '../src/core/sample.ts';
 import { exportEditJson } from '../src/core/index.ts';
+import { newDifficulty } from '../src/core/schema.ts';
+import { emptyDifficultyWarning } from '../src/editor/js/export_rules.ts';
 import { README_TEXT, buildExportFiles } from '../src/storage/exportFiles.ts';
 import { readBundle } from '../src/storage/bundle.ts';
 import { cleanFileName, downloadsErrorMessage, formatBytes, isPhoneLike, saveFile, savePrompt, browserSaveEnv } from '../src/storage/saveFiles.ts';
@@ -154,6 +156,34 @@ describe('ZIP 직접 구현', () => {
 });
 
 // ---------------------------------------------------------------- 4부. 내보내기 파일 목록 3종
+describe('빈 난이도 내보내기 경고', () => {
+  const easy = newDifficulty('EASY');
+  const normal = { ...newDifficulty('NORMAL'), notes: buildSampleChart().difficulties[0]!.notes.slice(0, 2) };
+  const hard = newDifficulty('HARD');
+  const chart = { difficulties: [easy, normal, hard] };
+
+  it.each(['chart', 'both', 'unity'] as const)('%s: 빈 난이도와 노트가 있는 난이도의 수를 모두 표시한다', (what) => {
+    expect(emptyDifficultyWarning(what, chart)).toEqual([
+      { name: 'EASY', count: 0 }, { name: 'NORMAL', count: 2 }, { name: 'HARD', count: 0 },
+    ]);
+  });
+
+  it('음원만 내보낼 때는 빈 난이도가 있어도 경고하지 않는다', () => {
+    expect(emptyDifficultyWarning('audio', chart)).toBeNull();
+  });
+
+  it('노트가 있는 난이도만 있거나 난이도 목록이 비어 있으면 경고하지 않는다', () => {
+    expect(emptyDifficultyWarning('chart', { difficulties: [normal] })).toBeNull();
+    expect(emptyDifficultyWarning('chart', { difficulties: [] })).toBeNull();
+  });
+
+  it('모든 난이도가 비어 있어도 난이도별 노트 수를 표시한다', () => {
+    expect(emptyDifficultyWarning('unity', { difficulties: [easy, hard] })).toEqual([
+      { name: 'EASY', count: 0 }, { name: 'HARD', count: 0 },
+    ]);
+  });
+});
+
 describe('내보내기 파일 3종', () => {
   const chart = buildSampleChart();
   chart.song.title = '테스트 곡: 1/2';

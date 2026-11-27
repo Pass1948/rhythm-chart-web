@@ -56,6 +56,7 @@ export interface SongSummary {
   note_count: number;
   analyzing: boolean;
   trashed: boolean;
+  trashed_at?: number;
   sha256: string;
 }
 
@@ -169,6 +170,7 @@ function summarize(rec: SongRecord, analyzing: boolean): SongSummary {
     note_count: chart ? chart.difficulties.reduce((n, d) => n + d.notes.length, 0) : 0,
     analyzing,
     trashed: !!rec.trashedAt,
+    ...(rec.trashedAt ? { trashed_at: rec.trashedAt } : {}),
     sha256: rec.audioMeta.sha256,
   };
 }

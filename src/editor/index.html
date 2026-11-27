@@ -64,7 +64,7 @@
         <input id="songArtistInput" class="textin" type="text" autocomplete="off" disabled placeholder="비워 두어도 됩니다">
         <small class="help">제목·아티스트는 100자까지 쓸 수 있고 Enter를 누르거나 칸 밖을 누르면 저장됩니다. 제목을 비우면 음원 파일 이름으로 돌아갑니다. 아티스트는 이 프로그램의 저장본과 채보 파일에만 기록되고 유니티 곡 표(SongTable)에는 들어가지 않습니다. 이미 유니티로 보낸 곡의 이름은 자동으로 바뀌지 않으니 유니티 표에서 직접 고쳐 주세요.</small>
       </div>
-      <div class="lbl sub recenthead"><span>최근 작업한 곡</span><button id="btnRecentClear" type="button" class="ghost sm recentclear" hidden>모두 지우기…</button></div>
+      <div class="lbl sub recenthead"><span>최근 작업한 곡</span><div class="recentactions"><button id="btnRecentTrash" type="button" class="ghost sm">휴지통</button><button id="btnRecentClear" type="button" class="ghost sm recentclear" hidden>모두 지우기…</button></div></div>
       <ul id="songList" class="songlist"></ul>
     </section>
 
@@ -337,6 +337,14 @@
     <div class="dlgfoot"><button value="cancel" id="saveCancel" formnovalidate>취소</button><button value="ok" class="primary" id="saveOk">저장</button></div>
   </form>
 </dialog>
+<dialog id="emptyExportDialog" class="songdialog" aria-labelledby="emptyExportTitle" aria-describedby="emptyExportNote">
+  <form method="dialog">
+    <h3 id="emptyExportTitle">빈 난이도가 있습니다</h3>
+    <p class="help" id="emptyExportNote"></p>
+    <ul id="emptyExportCounts" class="exportcounts" aria-label="난이도별 노트 수"></ul>
+    <div class="dlgfoot"><button value="cancel" id="emptyExportCancel" autofocus>취소</button><button value="ok" id="emptyExportOk" class="primary">그래도 내보내기</button></div>
+  </form>
+</dialog>
 <dialog id="deleteSongDialog" aria-labelledby="deleteSongTitle">
   <form method="dialog" id="deleteSongForm" novalidate>
     <h3 id="deleteSongTitle">작업을 지울까요?</h3>
@@ -344,6 +352,13 @@
     <p class="help" id="deleteSongExtra" hidden></p>
     <div class="dlgfoot"><button value="cancel" id="deleteSongCancel" formnovalidate autofocus>취소</button><button value="ok" class="dangerfill" id="deleteSongOk">지우기</button></div>
   </form>
+</dialog>
+<dialog id="trashSongDialog" class="songdialog" aria-labelledby="trashSongTitle">
+  <h3 id="trashSongTitle">휴지통</h3>
+  <p class="help" id="trashSongMsg" role="status"></p>
+  <ul id="trashSongList" class="trashlist"></ul>
+  <p class="help" id="trashSongFeedback" role="status"></p>
+  <form method="dialog" class="dlgfoot"><button id="trashSongClose" autofocus>닫기</button></form>
 </dialog>
 <input id="jsonInput" type="file" accept=".json,.zip,application/json,application/zip,application/x-zip-compressed" hidden>
 <div id="toast" class="toast" role="status"></div>

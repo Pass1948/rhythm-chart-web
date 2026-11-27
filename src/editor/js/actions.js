@@ -8,7 +8,7 @@ import {
 
 import { ANALYZE_MIN_MS, GENERATE_MIN_MS, ProgressTracker } from './progress_view.js';
 import { makeDemoFile } from '../../storage/demoSong.ts';
-import { confirmAndSave } from './export_ui.js';
+import { confirmAndSave, confirmChartExport } from './export_ui.js';
 import { optionsFor } from './gen_options.js';
 
 // 버튼 옆 진행 표시 상태 (계산은 progress_view.js, 그리기는 panels.js)
@@ -462,12 +462,18 @@ async function applyChartObject(obj) {
   status(`채보를 불러왔습니다. 오류 ${res.issues.filter((i) => i.level === 'error').length}개, 경고 ${res.issues.filter((i) => i.level !== 'error').length}개${extra}`, 'ok');
 }
 
-// 내보내기: 무엇을(채보 JSON / 음원 / 둘 다) → 파일 만들기 → 저장 확인 창(파일 이름 바꾸기) → 저장
+// 빈 난이도를 확인한 뒤 내보낼 파일을 만들고, 저장 창에서 파일 이름을 확인한다.
 export async function exportChart(what, kind, split) {
-  if (!S.song || !S.chart) return status('내보낼 곡이 없습니다.', 'warn');
+  const { song, chart } = S;
+  if (!song || !chart) return status('내보낼 곡이 없습니다.', 'warn');
+  if (!(await confirmChartExport(what, chart))) return status('내보내기를 취소했습니다.');
+  return saveChartExport({ song, chart, what, kind, split });
+}
+
+export async function saveChartExport(options) {
   try {
     status('내보낼 파일을 만드는 중입니다…');
-    const { files } = await api.prepareExport({ song: S.song, chart: S.chart, what, kind, split });
+    const { files } = await api.prepareExport(options);
     for (const f of files) {
       const outcome = await confirmAndSave(f, api);
       if (outcome) status(outcome.message, outcome.status === 'saved' ? 'ok' : outcome.status === 'declined' ? 'info' : 'error');

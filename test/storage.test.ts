@@ -71,9 +71,15 @@ describe('songStore (메모리 어댑터)', () => {
     expect(await store.purge(a.id)).toBe(false); // 살아 있는 곡은 영구 삭제하지 않는다
     expect(await store.trash(a.id)).toBe(true);
     expect(await store.list()).toHaveLength(0);
-    expect(await store.list(true)).toHaveLength(1);
+    const deleted = await store.list(true);
+    expect(deleted).toHaveLength(1);
+    expect(deleted[0]).toMatchObject({ id: a.id, title: '곡A', note_count: 0, trashed_at: expect.any(Number) });
+    expect(deleted[0]!.trashed_at).toBe((await store.get(a.id, false))!.trashedAt);
     expect(await store.restore(a.id)).toEqual({ id: a.id, renamed: false });
-    expect(await store.list()).toHaveLength(1);
+    const restored = await store.list();
+    expect(restored).toHaveLength(1);
+    expect(restored[0]).not.toHaveProperty('trashed_at');
+    expect(await store.list(true)).toHaveLength(0);
     await store.trash(a.id);
     expect(await store.purge(a.id)).toBe(true);
     expect(await store.get(a.id)).toBeNull();

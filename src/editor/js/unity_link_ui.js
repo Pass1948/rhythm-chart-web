@@ -1,7 +1,8 @@
 // 내보내기 창의 "유니티 묶음 (4키)" 영역: 유니티 폴더 연결·[유니티로 보내기]·[ZIP으로 저장]
 import { api } from '../../app/localApi.js';
 import { S, status } from './state.js';
-import { exportChart } from './actions.js';
+import { exportChart, saveChartExport } from './actions.js';
+import { confirmChartExport } from './export_ui.js';
 import { UnityLinkError, isLinkSupported, readLinkMarker, sendBundleToDir } from '../../storage/unityLink.ts';
 import { clearLink, loadLink, saveLink } from '../../storage/unityLinkStore.ts';
 
@@ -62,18 +63,20 @@ async function connect() {
   refreshUnityLinkUi();
 }
 
-// [유니티로 보내기]: 권한 확인 → 묶음 만들기 → 폴더에 쓰기
+// [유니티로 보내기]: 빈 난이도 확인 → 권한 확인 → 묶음 만들기 → 폴더에 쓰기
 async function send() {
   if (busy || !link) return;
+  const { song, chart } = S;
   say('');
-  busy = true;
-  refreshUnityLinkUi();
   try {
+    if (!(await confirmChartExport('unity', chart))) return say('내보내기를 취소했습니다.');
+    busy = true;
+    refreshUnityLinkUi();
     const h = link.handle;
     if (h.queryPermission && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') {
       if (!h.requestPermission || (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') return say('폴더 쓰기 권한이 필요합니다.', true);
     }
-    const bundle = await api.prepareUnityBundle({ song: S.song, chart: S.chart });
+    const bundle = await api.prepareUnityBundle({ song, chart });
     try {
       await sendBundleToDir(h, bundle, (n, total) => say(`${n}/${total} 쓰는 중…`));
     } catch (e) {
@@ -85,7 +88,7 @@ async function send() {
       say(e.message, true);
       status(e.message, 'error');
       $('dlgExport').close();
-      return exportChart('unity', 'unity', false); // 같은 묶음을 ZIP 으로 저장하는 흐름으로 바로 이어진다
+      return saveChartExport({ song, chart, what: 'unity', kind: 'unity', split: false });
     }
     const msg = `유니티 ChartInbox에 보냈습니다: ${bundle.folder}. 유니티의 Chart Sync 창에서 [동기화]를 눌러 주세요.`;
     say(msg);

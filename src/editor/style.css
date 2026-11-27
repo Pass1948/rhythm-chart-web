@@ -96,7 +96,8 @@ input[type=range]{accent-color:var(--action)}
 .songdel{flex:none;width:22px;height:22px;padding:0;line-height:1;font-size:15px;color:var(--text-muted);opacity:.5}
 .songlist li:hover .songdel,.songlist li:focus-within .songdel,.songdel:focus-visible{opacity:1}
 .songdel:hover:not(:disabled){color:var(--bad);background:var(--bad-bg)}
-.lbl.sub.recenthead{display:flex;align-items:center;justify-content:space-between;gap:var(--s2)}
+.lbl.sub.recenthead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s2)}
+.recentactions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--s1);margin-left:auto}
 .recentclear{height:22px;padding:0 6px;color:var(--text-muted);font-weight:var(--fw)}
 .recentclear[hidden]{display:none}
 .songlist li:hover{background:var(--bg-app)}.songlist li.on{background:var(--action-soft);color:var(--action-text);font-weight:var(--fw-strong)}.songlist small{color:var(--text-muted);white-space:nowrap}
@@ -248,6 +249,15 @@ dialog .opt{display:flex;gap:8px;align-items:center;padding:6px 0;color:var(--te
 button.dangerfill{background:var(--bad-bg);border-color:var(--bad);color:var(--bad);font-weight:var(--fw-strong)}
 button.dangerfill:hover:not(:disabled){background:var(--bad-bg);filter:brightness(.95)}
 #deleteSongDialog{max-width:440px}
+dialog:where(.songdialog){width:100%;min-width:0;max-width:min(440px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;overflow-wrap:anywhere}
+.songdialog .dlgfoot{align-items:center;flex-wrap:wrap}
+.exportcounts{margin:var(--s3) 0;padding-left:var(--s4)}
+.exportcounts li+li{margin-top:var(--s1)}
+.trashlist{list-style:none;margin:0;padding:0}
+.trashlist li{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:var(--s2) 0;border-bottom:1px solid var(--line)}
+.trashlist button{flex:none}
+.trashlist small{display:block;margin-top:var(--s1);color:var(--text-muted)}
+#trashSongMsg:empty,#trashSongFeedback:empty{display:none}
 .undobar{display:flex;align-items:center;gap:var(--s3);pointer-events:none;bottom:84px}
 .undobar.show{pointer-events:auto}
 .undobar button{height:28px;color:var(--text);flex:none}
