@@ -1,7 +1,7 @@
 // 패널: 왼쪽 열(곡 정보·검사·분석) 카드, 건강검진, 선택한 노트 패널, 대화상자. DOM 연결과 표시 갱신을 담당한다.
 import {
   A, TRACK, applyTiming, cancelAnalyze, cancelPaste, copySelected, cutSelected, startPaste, togglePasteFlip, clearNotes, convertSelected, deleteSelected, exportChart, focusNote, generate, gridFitText, importFile, loadJson,
-  openSong, repickSoon, runAnalyze, save, saveSongInfo, startDemo, swapSelectedLane, updateSelected,
+  nudgeSelected, openSong, repickSoon, runAnalyze, save, saveSongInfo, startDemo, swapSelectedLane, updateSelected,
 } from './actions.js';
 import { BURST_MAX, BURST_MIN, FOUR_KEY_LABELS, TYPE_NAMES, burstRate, clampBurstCount, healthStats, isBurstNote, isLong, laneText, noteEnd } from './edit_rules.js';
 import { formatTime } from './vertical.js';
@@ -99,7 +99,19 @@ export function initPanels() {
     $('gridSelect').value = String(g);
     S.gridDiv = g;
   });
-  $('gridSelect').addEventListener('change', (e) => { S.gridDiv = e.target.value === 'free' ? 'free' : Number(e.target.value); emit('view'); });
+  $('gridSelect').addEventListener('change', (e) => {
+    const value = e.target.value;
+    S.gridDiv = value === 'free' || value === 'tenth' ? value : Number(value);
+    emit('view');
+  });
+  on('timing', () => { $('gridSelect').value = String(S.gridDiv); });
+  $('selectedBody').addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-nudge-ms]');
+    if (!button) return;
+    const delta = Number(button.dataset.nudgeMs);
+    nudgeSelected(delta, 'ms');
+    $('selectedBody').querySelector(`[data-nudge-ms="${delta}"]`)?.focus({ preventScroll: true });
+  });
   for (const [id,key] of [['density','density'],['holdAmount','amount'],['fkSim','simultaneous']]) {
     $(id).addEventListener('change', () => {
       const diff = $('difficulty').value;
@@ -569,6 +581,7 @@ function setLight(kind, text) {
 }
 
 // ---------- 선택한 노트 패널 ----------
+const nudgeButtons = '<button type="button" class="sm" data-nudge-ms="-10">-10ms</button><button type="button" class="sm" data-nudge-ms="10">+10ms</button>';
 export function renderSelected() {
   const box = $('selectedBody');
   const diffSel = $('diffSelect');
@@ -590,7 +603,7 @@ export function renderSelected() {
   }
   if (S.selectedIds.length > 1) {
     box.className = '';
-    box.innerHTML = `<div class="help"><b>${S.selectedIds.length}개 선택됨</b> · 선택한 노트 위를 끌면 함께 위아래로 움직입니다. (Esc: 선택 해제)</div><div class="row"><button id="selDelete" type="button" class="sm">삭제</button></div>${clipButtons()}`;
+    box.innerHTML = `<div class="help"><b>${S.selectedIds.length}개 선택됨</b> · 선택한 노트 위를 끌면 함께 위아래로 움직입니다. (Esc: 선택 해제)</div><div class="row">${nudgeButtons}<button id="selDelete" type="button" class="sm">삭제</button></div>${clipButtons()}`;
     $('selDelete').addEventListener('click', deleteSelected);
     bindClipButtons();
     return;
@@ -607,10 +620,10 @@ export function renderSelected() {
   const limit = (S.config && S.config.validate && S.config.validate.max_burst_per_sec) || 12;
   const rate = n.type === 'burst' ? burstRate(n.count, lenMs) : 0;
   box.className = '';
-  box.innerHTML = `<div class="help">종류: <b>${TYPE_NAMES[n.type]}</b> · ${n.type === 'burst' ? '' : `레인: <b>${laneText(n.lane)}</b> · `}${n.type === 'burst' ? (keyMode() === 4 ? '4레인 전체 폭 · ' : '양쪽 레인 전체 폭 · ') : ''} 시작: <b>${S.map.barBeat(n.tick)}</b> (${formatTime(S.map.tickToAudioMs(n.tick))})</div>
+  box.innerHTML = `<div class="help">종류: <b>${TYPE_NAMES[n.type]}</b> · ${n.type === 'burst' ? '' : `레인: <b>${laneText(n.lane)}</b> · `}${n.type === 'burst' ? (keyMode() === 4 ? '4레인 전체 폭 · ' : '양쪽 레인 전체 폭 · ') : ''} 시작: <b>${S.map.barBeat(n.tick)}</b> (${Math.round(S.map.tickToAudioMs(n.tick))}ms)</div>
     ${n.type === 'hold' ? `<label>길이 (박) <input id="selLen" class="num small" type="number" min="0.25" step="0.25" value="${Math.round(lenBeats * 100) / 100}"> <small class="help">${Math.round(lenMs)}ms</small></label>` : ''}
     ${n.type === 'burst' ? `<div class="help" style="color:var(--warn)">옛 연타노트입니다(${n.count}회). 아래 [단타]·[롱노트]로 바꿀 수 있습니다. 현재 Unity Chart Sync는 연타가 포함된 묶음을 가져올 수 없습니다.</div>` : ''}
-    <div class="row">${n.type === 'burst' ? '' : '<button id="selSwap" type="button" class="sm">레인 교체</button>'}<button id="selDelete" type="button" class="sm">삭제</button></div>
+    <div class="row">${n.type === 'burst' ? '' : '<button id="selSwap" type="button" class="sm">레인 교체</button>'}${nudgeButtons}<button id="selDelete" type="button" class="sm">삭제</button></div>
     ${clipButtons()}
     <div class="row"><small class="help">종류 바꾸기:</small>${['tap', 'hold'].map((t) => `<button type="button" class="sm conv" data-type="${t}" ${t === n.type ? 'disabled' : ''}>${TYPE_NAMES[t]}</button>`).join('')}</div>`;
   bindClipButtons();

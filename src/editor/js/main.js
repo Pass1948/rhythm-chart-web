@@ -1,7 +1,7 @@
 // 진입점: 설정·프리셋 불러오기, 모듈 연결, 재생 막대, 단축키, 화면 갱신 루프(requestAnimationFrame).
 import { clampRate, stepRate } from './test_control.js';
 import { initThemeMode, setMode } from './theme_mode.js';
-import { A, cancelPaste, focusNote, clearSelection, copySelected, cutSelected, startPaste, redoAction, refreshSongs, save, seek, selectAll, undoAction, deleteSelected, validateSoon } from './actions.js';
+import { A, cancelPaste, focusNote, clearSelection, copySelected, cutSelected, startPaste, nudgeSelected, redoAction, refreshSongs, save, seek, selectAll, undoAction, deleteSelected, validateSoon } from './actions.js';
 import { api } from '../../app/localApi.js';
 import { AudioEngine } from './audio.js';
 import { askBurstCount, initAnalyzeCard, initPanels, renderAnalyze, renderHealth, renderSelected, renderSong } from './panels.js';
@@ -234,6 +234,13 @@ function bindHotkeys() {
     const typing = t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(t.type));
     if (typing || document.querySelector('dialog[open]')) return;
     const ctrl = e.ctrlKey || e.metaKey;
+    if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+      if (e.defaultPrevented || ctrl || e.altKey || e.shiftKey || !S.selectedIds.length ||
+          t.closest('input, select, [contenteditable], [role="menu"], [role="menuitem"], [aria-haspopup]')) return;
+      e.preventDefault();
+      nudgeSelected(e.code === 'ArrowUp' ? 1 : -1, 'grid');
+      return;
+    }
     if (ctrl && e.code === 'KeyS') { e.preventDefault(); save(); return; }
     if (ctrl && e.code === 'KeyZ' && !e.shiftKey) { e.preventDefault(); undoAction(); return; }
     if (ctrl && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) { e.preventDefault(); redoAction(); return; }

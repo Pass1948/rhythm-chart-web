@@ -1,6 +1,6 @@
 // 화면의 동작 흐름: 곡 올리기 → 분석 → 노트 자동 생성 → 수정 → 저장 → 내보내기. 로컬 API(브라우저 안 기능)와 상태 변경을 묶어 둔다.
 import { api } from '../../app/localApi.js';
-import { makeClip, tryPaste, BURST_CLOSED_REASON, TYPE_NAMES, laneText, swapLane, tryUpdate, removeNote, removeNotes } from './edit_rules.js';
+import { makeClip, tryPaste, BURST_CLOSED_REASON, TYPE_NAMES, laneText, swapLane, tryMoveGroup, tryMoveGroupByMs, tryUpdate, removeNote, removeNotes } from './edit_rules.js';
 import { thumbRules } from '../../generate/rules.ts';
 import {
   S, applyKeyMode, commit, durationMs, emit, endPaste, gridStep, maxTick, notes, rebuildTiming, redo, select, selectedNote, setChart, setNotes, setSelection, snapshot, status, syncKeyMode, undo,
@@ -320,7 +320,7 @@ export async function generate() {
   };
   if (read('rangeStart')) body.range_start_ms = Number(read('rangeStart')) * 1000;
   if (read('rangeEnd')) body.range_end_ms = Number(read('rangeEnd')) * 1000;
-  if (S.gridDiv !== 'free') body.grid_division = Number(S.gridDiv);
+  if (typeof S.gridDiv === 'number') body.grid_division = S.gridDiv;
   if (TRACK.generate.isRunning()) return;
   TRACK.generate.begin(now(), 'plain', '만드는 중…');
   emit('progress', {});
@@ -498,6 +498,18 @@ export async function validateNow() {
 }
 
 // ---------- 선택한 노트 편집 ----------
+
+export function nudgeSelected(delta, unit) {
+  if (!S.chart || !S.selectedIds.length) return;
+  const list = notes();
+  const r = unit === 'ms'
+    ? tryMoveGroupByMs(list, S.selectedIds, delta, S.map, maxTick())
+    : tryMoveGroup(list, S.selectedIds, delta * (gridStep() || 1), maxTick());
+  if (!r.ok) return status(r.reason, 'warn');
+  const before = snapshot();
+  setNotes(r.notes);
+  commit(before);
+}
 
 // 현재 난이도의 모든 노트를 선택한다 (Ctrl+A)
 export function selectAll() {

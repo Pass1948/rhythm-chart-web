@@ -265,8 +265,23 @@ export function removeNotes(notes, ids) {
 
 // 선택한 노트를 시간과 레인 방향으로 같은 거리만큼 옮긴다.
 export function tryMoveGroup(notes, ids, deltaTick, maxTick = null, deltaLane = 0) {
+  return moveGroup(notes, ids, (n) => ({
+    ...n, tick: n.tick + deltaTick, lane: isBurstNote(n) ? n.lane : n.lane + deltaLane,
+  }), maxTick);
+}
+
+// 시작과 끝에 같은 음원 시간 차이를 더하고, 채보의 정수 tick으로 반올림한다.
+export function tryMoveGroupByMs(notes, ids, deltaMs, map, maxTick = null) {
+  const shiftTick = (tick) => Math.round(map.audioMsToTick(map.tickToAudioMs(tick) + deltaMs));
+  return moveGroup(notes, ids, (n) => {
+    const tick = shiftTick(n.tick);
+    return isLong(n) ? { ...n, tick, length_tick: Math.max(1, shiftTick(noteEnd(n)) - tick) } : { ...n, tick };
+  }, maxTick);
+}
+
+function moveGroup(notes, ids, move, maxTick) {
   const set = new Set(ids);
-  const moving = notes.filter((n) => set.has(n.id)).map((n) => ({ ...n, tick: n.tick + deltaTick, lane: isBurstNote(n) ? n.lane : n.lane + deltaLane }));
+  const moving = notes.filter((n) => set.has(n.id)).map(move);
   if (moving.some(isBurstNote)) return { ok: false, reason: `${BURST_CLOSED_REASON} 선택한 노트를 모두 옮기지 않았습니다.` };
   for (const m of moving) {
     const reason = placementReason(m, maxTick);

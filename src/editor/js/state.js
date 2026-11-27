@@ -1,6 +1,6 @@
 // 화면 전체가 공유하는 상태와 채보 데이터 보조 함수. (화면 그리기 코드는 여기에 넣지 않는다)
 import { History, byTick, keyModeOf, setKeyMode } from './edit_rules.js';
-import { BpmMap } from './timing.js';
+import { BpmMap, RES } from './timing.js';
 
 export const S = {
   config: null,        // 서버 설정(판정 폭, 검증 기준)
@@ -23,7 +23,7 @@ export const S = {
   paste: null,         // 붙여넣기 미리보기 모드일 때 {flip}
   selectedIds: [],     // 선택된 노트 id 목록 (드래그·Shift 로 여러 개 선택)
   dirty: false,
-  gridDiv: 8,         // 격자(마디를 몇 칸으로 나눌지), 'free' 면 격자 없음
+  gridDiv: 8,         // 격자(마디를 몇 칸으로 나눌지), 'tenth'는 0.1박, 'free'는 격자 없음
   holdBeats: 1,        // 롱노트 기본 길이(박)
   burstCount: 8,       // 연타 기본 횟수
   followPlayhead: true,
@@ -72,7 +72,8 @@ export function maxTick() {
 
 // 격자 한 칸의 tick 수 (격자 없음이면 0)
 export function gridStep() {
-  return S.gridDiv === 'free' ? 0 : 3840 / S.gridDiv;
+  if (S.gridDiv === 'tenth') return RES / 10;
+  return S.gridDiv === 'free' ? 0 : 4 * RES / S.gridDiv;
 }
 
 // 열린 채보의 키 모드 (2 | 4). 없으면 2키
@@ -101,15 +102,15 @@ export function setChart(chart) {
   syncKeyMode();
   S.diffIndex = 0;
   S.selectedId = null;
-  rebuildTiming();
+  rebuildTiming(true);
 }
 
 // 채보의 타이밍이 바뀐 뒤 변환 객체를 다시 만든다
-export function rebuildTiming() {
+export function rebuildTiming(openingChart = false) {
   const t = S.chart.timing;
   S.map = new BpmMap(t.bpm_map, S.chart.song.audio_offset_ms || 0);
   const g = t.grid_map && t.grid_map[0] && t.grid_map[0].division;
-  if (g) S.gridDiv = g;
+  if (g && (openingChart || S.gridDiv !== 'tenth')) S.gridDiv = g;
 }
 
 // 되돌리기용 스냅샷: 노트와 타이밍을 모두 담는다
@@ -121,13 +122,15 @@ export function snapshot() {
 
 export function restore(text) {
   const s = JSON.parse(text);
+  const timingChanged = JSON.stringify(S.chart.timing) !== JSON.stringify(s.timing) ||
+    (S.chart.song.audio_offset_ms || 0) !== s.offset;
   setNotes(s.notes);
   S.chart.timing = s.timing;
   S.chart.song.audio_offset_ms = s.offset;
   S.chart.sections = s.sections;
   applyKeyMode(S.chart, s.keyMode === 4 ? 4 : 2); // 다시 만들기를 되돌리면 키 모드도 함께 돌아온다
   syncKeyMode();
-  rebuildTiming();
+  if (timingChanged) rebuildTiming();
   S.selectedIds = S.selectedIds.filter((id) => notes().some((n) => n.id === id));
 }
 

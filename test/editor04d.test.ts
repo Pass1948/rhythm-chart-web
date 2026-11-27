@@ -66,7 +66,7 @@ describe('편집 도움말', () => {
     const src = readFileSync('src/editor/js/main.js', 'utf8');
     const codeOf: Record<string, string> = {
       Space: "'Space'", Z: "'KeyZ'", Y: "'KeyY'", A: "'KeyA'", C: "'KeyC'", X: "'KeyX'", V: "'KeyV'", S: "'KeyS'", M: "'KeyM'",
-      Delete: "'Delete'", Backspace: "'Backspace'", Esc: "'Escape'", '[': "'BracketLeft'", ']': "'BracketRight'",
+      Delete: "'Delete'", Backspace: "'Backspace'", Esc: "'Escape'", '↑': "'ArrowUp'", '↓': "'ArrowDown'", '[': "'BracketLeft'", ']': "'BracketRight'",
     };
     for (const row of HELP_KEYS as { keys: string[][] }[]) {
       for (const combo of row.keys) {

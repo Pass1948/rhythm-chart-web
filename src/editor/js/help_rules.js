@@ -18,6 +18,7 @@ export const HELP_KEYS = [
   { keys: [k('Ctrl', 'V')], desc: '붙여넣기 (마우스로 위치를 고르고 클릭)' },
   { keys: [k('Ctrl', 'Shift', 'V')], desc: '좌우를 뒤집어 붙여넣기' },
   { keys: [k('Delete'), k('Backspace')], desc: '선택한 노트 삭제' },
+  { keys: [k('↑'), k('↓')], desc: '선택한 노트를 화면 위/아래로 격자 한 칸만큼 옮기기 (격자 없음: 1 tick)' },
   { keys: [k('Esc')], desc: '붙여넣기 취소 / 선택 해제' },
   { keys: [k('['), k(']')], desc: '재생 속도 느리게 / 빠르게' },
   { keys: [k('M')], desc: '메트로놈 켜기 / 끄기' },
@@ -47,6 +48,8 @@ export const HELP_TOOLS = {
 
 // 선택 도구에서 쓰는 조작 (마우스)
 export const HELP_SELECT = [
+  { keys: [k('-10ms'), k('+10ms')], act: true, desc: '선택한 노트 패널에서 음원 기준으로 10ms 앞/뒤로 옮기기' },
+  { keys: [k('0.1박')], act: true, desc: '편집 격자를 한 박에 10칸으로 나누기 (한 칸: 96 tick). 자동 생성은 난이도 기본 격자를 사용합니다.' },
   { keys: [k('빈 곳 끌기')], act: true, desc: '(선택 도구) 사각형 안의 노트를 모두 선택' },
   { keys: [k('Shift', '클릭')], act: true, desc: '(선택 도구) 선택에 더하기 / 빼기' },
   { keys: [k('Shift', '영역 끌기')], act: true, desc: '(선택 도구) 기존 선택에 영역 추가' },
